@@ -113,7 +113,7 @@ int main()
 
   zmq::context_t context(1);
   zmq::socket_t publisher(context, ZMQ_PUB);
-  publisher.bind("tcp://127.0.0.1:7621");
+  publisher.bind("tcp://127.0.0.1:7921");
   //  std::cout << "1" << std::endl; 
  /*
   zmq::context_t context3(1);
@@ -147,51 +147,51 @@ int main()
   //we need subscriber to receive messages                                                                                                                    
   zmq::context_t contextta2(1);
   zmq::socket_t subscriberta2(contextta2, ZMQ_SUB);
-  subscriberta2.connect("tcp://127.0.0.1:7652");
+  subscriberta2.connect("tcp://127.0.0.1:7252");
   subscriberta2.setsockopt(ZMQ_SUBSCRIBE, "", 0);
   //std::cout << "connect socket sub crate 2" << std::endl;                                                                                                 
 
 
   zmq::context_t contextta3(1);
   zmq::socket_t subscriberta3(contextta3, ZMQ_SUB);
-  subscriberta3.connect("tcp://127.0.0.1:7732");
+  subscriberta3.connect("tcp://127.0.0.1:7232");
   subscriberta3.setsockopt(ZMQ_SUBSCRIBE, "", 0);
   //std::cout << "connect socket sub crate 3" << std::endl;                                                                                                   
 
 
   zmq::context_t contextta4(1);
   zmq::socket_t subscriberta4(contextta4, ZMQ_SUB);
-  subscriberta4.connect("tcp://127.0.0.1:7742");
+  subscriberta4.connect("tcp://127.0.0.1:7242");
   subscriberta4.setsockopt(ZMQ_SUBSCRIBE, "", 0);
   //std::cout << "connect socket sub crate 4" << std::endl;                                                                                                  
 
   zmq::context_t contextta5(1);
   zmq::socket_t subscriberta5(contextta5, ZMQ_SUB);
-  subscriberta5.connect("tcp://127.0.0.1:7658");
+  subscriberta5.connect("tcp://127.0.0.1:7258");
   subscriberta5.setsockopt(ZMQ_SUBSCRIBE, "", 0);
   // std::cout << "connect socket sub crate 5" << std::endl;                                                                                                  
 
   zmq::context_t contextta6(1);
   zmq::socket_t subscriberta6(contextta6, ZMQ_SUB);
-  subscriberta6.connect("tcp://127.0.0.1:7762");
+  subscriberta6.connect("tcp://127.0.0.1:7262");
   subscriberta6.setsockopt(ZMQ_SUBSCRIBE, "", 0);
   // std::cout << "connect socket sub crate 6" << std::endl;                                                                                                  
 
   zmq::context_t contextta7(1);
   zmq::socket_t subscriberta7(contextta7, ZMQ_SUB);
-  subscriberta7.connect("tcp://127.0.0.1:7772");
+  subscriberta7.connect("tcp://127.0.0.1:7272");
   subscriberta7.setsockopt(ZMQ_SUBSCRIBE, "", 0);
   // std::cout << "connect socket sub crate 7 " << std::endl;                                                                                                 
 
   zmq::context_t contextta8(1);
   zmq::socket_t subscriberta8(contextta8, ZMQ_SUB);
-  subscriberta8.connect("tcp://127.0.0.1:7782");
+  subscriberta8.connect("tcp://127.0.0.1:7282");
   subscriberta8.setsockopt(ZMQ_SUBSCRIBE, "", 0);
   //    std::cout << "connect socket sub crate 8" << std::endl;                                                                                                 
 
   zmq::context_t contextta9(1);
   zmq::socket_t subscriberta9(contextta9, ZMQ_SUB);
-  subscriberta9.connect("tcp://127.0.0.1:7698");
+  subscriberta9.connect("tcp://127.0.0.1:7298");
   subscriberta9.setsockopt(ZMQ_SUBSCRIBE, "", 0);
   // std::cout << "connect socket sub crate 9" << std::endl;      
 
@@ -227,6 +227,12 @@ int main()
 
   std::ofstream outputFile;
   outputFile.open("Alg2.txt");
+
+  std::ofstream algtimefile;
+  algtimefile.open("Algtime2.txt");
+
+  std::ofstream outputFile1;
+  outputFile1.open("Triggered2.txt");
 
   bool timesee=true;
   //  cout << "deadch" << deadch.size() << endl;
@@ -392,7 +398,7 @@ int main()
     // outputFile << num << "\t" << tp_list2.size() << " \t" <<  tp_list3.size()  << " \t" <<  tp_list4.size() << " \t" << tp_list5.size() << " \t" << tp_list6.size() << " \t" << tp_list7.size() << " \t" << tp_list8.size() << " \t" << tp_list9.size() << " \t" <<  tp_list.size()  << " \t" <<  elapsed1pr.count() << " \t" <<  elapsed2pr.count() << " \t" <<  elapsed4pr.count() << " \t" <<  elapsed6pr.count() <<   " \t" << elapsedr.count() << " \t"  <<  elapsed.count() << " \t" <<  elapsed1.count() << " \n";
     outputFile.flush();
 
-    outputFile << num << "\t" << tp_list2.size() << " \t" <<  tp_list3.size()  << " \t" <<  tp_list4.size() << " \t" << tp_list5.size() << " \t" << tp_list6.size() << " \t" << tp_list7.size()<< " \t" << tp_list8.size() << " \t" << tp_list9.size() << " \t" <<  tp_list.size()  << " \t" << elapsedr.count() << " \t"  << elapsed1.count() << " \n";  
+    outputFile << num << "\t" << tp_list[0].driftRegion << "\t" << tp_list2.size() << " \t" <<  tp_list3.size()  << " \t" <<  tp_list4.size() << " \t" << tp_list5.size() << " \t" << tp_list6.size() << " \t" << tp_list7.size()<< " \t" << tp_list8.size() << " \t" << tp_list9.size() << " \t" <<  tp_list.size()  << " \t" << elapsedr.count() << " \t"  << elapsed1.count() << " \n";  
 
 
     //num+=1;
@@ -406,7 +412,7 @@ int main()
     tp_list9.clear();
 
     //cout << "dead 3 : " << deadch[18] << " \t" << deadch[19] << " \t" << deadch[4952] << " \t" << endl;
-
+    auto endrr = std::chrono::system_clock::now();
 
     /*
     //declare variables                                                                                                                                       
@@ -445,7 +451,8 @@ int main()
     int timewid=0;
     int trigtot;
     int time_diff = 30;
-    int braggE = 27500; //  27500 is used in uB based on incoming muon angle vs maxadc                                                                        
+    int braggE_min = 1200; // 27500; //  27500 is used in uB based on incoming muon angle vs maxadc                                                                                
+    int braggE_max = 12000;
     int chnl_maxadc;
     int time_max, this_time_max, prev_time_max, horiz_tt;
     int temp_t;
@@ -483,9 +490,9 @@ int main()
     int prev_tot, next_tot, sf_tot;
     int contiguous_tolerance = 16;
 
-    int boxwidtime=1150;
+    int boxwidtime=575; //1150;
     std::vector<int> timeind_vec;
-    int boxwidch=96; //96;                                                                                                                                    
+    int boxwidch=36; //96; //96;                                                                                                                                    
     std::vector<int> chnlind_vec;
     //    std::vector<TriggerPrimitive> tp_list;   
     std::vector<TriggerPrimitive> tp_only;
@@ -549,77 +556,89 @@ int main()
     }
 
 
+
     for (int i=0; i<tp_list.size(); ++i){
+      //      std::cout<< "going to skip noisy channels:" << std::endl;
+
+      //      if ((tp_list[i].channel >= 5325 && tp_list[i].channel <= 5334) ||
+      //  (tp_list[i].channel >= 4835 && tp_list[i].channel <= 4844)) {
+	//	std::cout << "Skipping noisy channels: " << tp_list[i].channel << std::endl;
+      // continue;
+      //}
+
+     
       initialvec_adc.emplace_back(tp_list[i].adc_integral);
       run=tp_list[i].runa;
       subrun=tp_list[i].subruna;
 
-      //std::cout << "Channel: " << tp_list[i].channel  << std::endl;
+      //std::cout << "Channel: " << tp_list[i].channel  << std::endl;                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           
 
 
       if ((tp_list[i].channel > chnlind_vec[boxchcnt]) or (i==tp_list.size()-1)){
         if(tmpchnl_vec.size()==0){
           while(tp_list[i].channel > chnlind_vec[boxchcnt]){
             boxchcnt+=1;
-            tmpchnl_vec_temp.push_back({tp_list[i].frame, tp_list[i].fem,tp_list[i].channel, tp_list[i].time_start, tp_list[i].time_over_threshold, tp_list[i].adc_peak, tp_list[i].adc_integral, tp_list[i].driftRegion, tp_list[i].crateid, tp_list[i].runa, tp_list[i].subruna});
-           
-	  }
+          }
+	  tmpchnl_vec_temp.push_back({tp_list[i].frame, tp_list[i].fem,tp_list[i].channel, tp_list[i].time_start, tp_list[i].time_over_threshold, tp_list[i].adc_peak, tp_list[i].adc_integral, tp_list[i].driftRegion, tp_list[i].crateid, tp_list[i].runa, tp_list[i].subruna});
+
+
         }
 
         else{
           tmpchnl_vec_temp.push_back({tp_list[i].frame, tp_list[i].fem,tp_list[i].channel, tp_list[i].time_start, tp_list[i].time_over_threshold, tp_list[i].adc_peak, tp_list[i].adc_integral, tp_list[i].driftRegion, tp_list[i].crateid, tp_list[i].runa, tp_list[i].subruna});
-     
-	  std::vector<int> maxadcVec;
-	  std::vector<int> maxadcindVec;
-          int indtouse;
-          maxadc = 0;
-          for(int time_ind=0; time_ind < 4; time_ind++){
+
+          for(int time_ind=0; time_ind < 10; time_ind++){
             sublist.clear();
 
-	    for (int tmpch=0; tmpch < tmpchnl_vec.size(); tmpch++){
-	      if ((tmpchnl_vec[tmpch].time_start >= timeind_vec[time_ind]) and (tmpchnl_vec[tmpch].time_start < timeind_vec[time_ind+1])){
+            for (int tmpch=0; tmpch < tmpchnl_vec.size(); tmpch++){
+              if ((tmpchnl_vec[tmpch].time_start >= timeind_vec[time_ind]) and (tmpchnl_vec[tmpch].time_start < timeind_vec[time_ind+1])){
 
                 sublist.push_back({tmpchnl_vec[tmpch].frame, tmpchnl_vec[tmpch].fem, tmpchnl_vec[tmpch].channel, tmpchnl_vec[tmpch].time_start,tmpchnl_vec[tmpch].time_over_threshold,tmpchnl_vec[tmpch].adc_peak, tmpchnl_vec[tmpch].adc_integral, tmpchnl_vec[tmpch].driftRegion, tmpchnl_vec[tmpch].crateid, candidateBool, run, subrun});
-              }}
+              }
+            }
+            int maxadc = 0;
+            int maxadcamp = 0;
+            int maxadcind = -1;
+            int maxadcampind = -1;
 
-            maxadc = 0;
+	    for (int sl=0; sl<sublist.size(); sl++){
+	      if (sublist[sl].adc_integral> maxadc) {
+		maxadc =  sublist[sl].adc_integral;
+		maxadcind = sl;
+	      }
 
-            if(sublist.size()>0){ //C. now  or i==tp_list.size()){                                                                                           \                                                                                                                                                                                          
+              if (sublist[sl].adc_peak > maxadcamp) {
+                maxadcamp = sublist[sl].adc_peak;
+                maxadcampind = sl;
+                //outputFile2 << evt << "\t" << maxadcamp <<    " \t " << sublist[sl].adc_integral << "\n";                                                                                                                                                                                                                                                                                                                                                                                                                                                                     
+              }
+	    }
+	    if (maxadc > braggE_min && maxadc < braggE_max && maxadcamp > 99 && maxadcamp < 201) {
+	      tp_list_maxadc.push_back({sublist[maxadcind].frame, sublist[maxadcind].fem, sublist[maxadcind].channel, sublist[maxadcind].time_start, sublist[maxadcind].time_over_threshold, sublist[maxadcind].adc_peak, sublist[maxadcind].adc_integral, sublist[maxadcind].driftRegion, sublist[maxadcind].crateid, sublist[maxadcind].candidateBool,sublist[maxadcind].run, sublist[maxadcind].subrun});
 
-              for (int sl=0; sl<sublist.size(); sl++){
-                if (sublist[sl].adc_integral> maxadc) {
-                  maxadc =  sublist[sl].adc_integral;
-                  maxadcind = sl;
-                }}
-              //std::cout << "check on maxadc :" << maxadc  << " with index: " << maxadcind << std::endl;                                                                                                                                                                                                                                               
-
-              if(maxadc > braggE and maxadc < 70000){
-                tp_list_maxadc.push_back({sublist[maxadcind].frame, sublist[maxadcind].fem, sublist[maxadcind].channel, sublist[maxadcind].time_start, sublist[maxadcind].time_over_threshold, sublist[maxadcind].adc_peak, sublist[maxadcind].adc_integral, sublist[maxadcind].driftRegion, sublist[maxadcind].crateid, sublist[maxadcind].candidateBool,sublist[maxadcind].run, sublist[maxadcind].subrun});
-                maxadc = 0;
-
-              }}
-          }
+	    }}
           tmpchnl_vec.clear();
-
         }
-      }//end loop on channel indices [1]                                                                                                                                                                                                                                                                                                                
-     
-      if (tp_list[i].channel <= chnlind_vec[boxchcnt]){ // or i==tp_list.size()){                                                                       
-	// cout << "filling tmp chnl" << endl;                                                                                                             
-       if(tmpchnl_vec_temp.size()!=0) {
- 	 tmpchnl_vec.insert(tmpchnl_vec.end(),tmpchnl_vec_temp.begin(),tmpchnl_vec_temp.end());
-	 //std::cout << "again check size of tmpchnl_vec: " << tmpchnl_vec.size() << std::endl;
-	 tmpchnl_vec_temp.clear();
-      }  
-
-       tmpchnl_vec.push_back({tp_list[i].frame, tp_list[i].fem,tp_list[i].channel, tp_list[i].time_start, tp_list[i].time_over_threshold, tp_list[i].adc_peak, tp_list[i].adc_integral, tp_list[i].driftRegion, tp_list[i].crateid, tp_list[i].runa, tp_list[i].subruna});
-     
       }
-  
-    }//end of tp_list size
+
+      if (tp_list[i].channel <= chnlind_vec[boxchcnt]){ // or i==tp_list.size()){                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               
+        // cout << "filling tmp chnl" << endl;                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  
+        if (!tmpchnl_vec_temp.empty()) {
+          tmpchnl_vec.insert(tmpchnl_vec.end(),tmpchnl_vec_temp.begin(),tmpchnl_vec_temp.end());
+          //std::cout << "again check size of tmpchnl_vec: " << tmpchnl_vec.size() << std::endl;                                                                                                                                                                                                                                                                                                                                                                                                                                                                                
+          tmpchnl_vec_temp.clear();
+        }
+
+	tmpchnl_vec.push_back({tp_list[i].frame, tp_list[i].fem,tp_list[i].channel, tp_list[i].time_start, tp_list[i].time_over_threshold, tp_list[i].adc_peak, tp_list[i].adc_integral, tp_list[i].driftRegion, tp_list[i].crateid, tp_list[i].runa, tp_list[i].subruna});
+
+      }
+
+    }//end of tp_list size                                                                                                                                                                                                                                                                                                                
+  auto end2brg = std::chrono::system_clock::now();
+  auto elapsed2brg = std::chrono::duration_cast<std::chrono::microseconds>(end2brg - endrr);
 
 
-    //    std::cout << "max adc size - " << tp_list_maxadc.size() << std::endl;
+  //      std::cout << "max adc size - " << tp_list_maxadc.size() << std::endl;
 
     // ****************************SECOND PART ***************************************                                                                          
     for(int imaxadc=0; imaxadc<tp_list_maxadc.size(); imaxadc++){
@@ -669,7 +688,7 @@ int main()
 
      if (frontfound == true){
        std::cout << "maxadc dR: " << tp_list_this[imaxadc].driftRegion <<  " , frame: " << tp_list_this[imaxadc].frame  <<" , chnl: " <<  tp_list_this[imaxadc].channel<< " ,time:" << tp_list_this[imaxadc].time_start  << " , adc: " << tp_list_this[imaxadc].adc_integral << " ,tot: " << tp_list_this[imaxadc].time_over_threshold << std::endl;
-       std::cout << "Front found cordinates: " << tp_list_next[imaxadc].channel << " , time: " << tp_list_next[imaxadc].time_start  << " , adc: " << tp_list_next[imaxadc].adc_integral << " , tot: " << tp_list_next[imaxadc].time_over_threshold << std::endl;  
+       //       std::cout << "Front found cordinates: " << tp_list_next[imaxadc].channel << " , time: " << tp_list_next[imaxadc].time_start  << " , adc: " << tp_list_next[imaxadc].adc_integral << " , tot: " << tp_list_next[imaxadc].time_over_threshold << std::endl;  
        break;
      }                                                                 
 
@@ -731,7 +750,7 @@ int main()
 
 	     frontslope_bottom = float(tp_list_next[imaxadc].time_start - tp_list_sf[imaxadc].time_start)/ denf;
 
-             cout << "Slopes: " << frontslope_top << " , " << frontslope_mid  << " , " << frontslope_bottom << endl;
+	     //    cout << "Slopes: " << frontslope_top << " , " << frontslope_mid  << " , " << frontslope_bottom << endl;
 
 	   }
 
@@ -769,7 +788,14 @@ int main()
       }
 
 
-      if (tp_list[icheck].channel == tp_list_next[imaxadc].channel) break;
+      //      if (tp_list[icheck].channel == tp_list_next[imaxadc].channel) break;
+      if (tp_list[icheck].channel == tp_list_next[imaxadc].channel){
+        if(tp_list[icheck].time_start==tp_list_next[imaxadc].time_start + tp_list_next[imaxadc].time_over_threshold or tp_list_next[imaxadc].time_start==tp_list[icheck].time_start + tp_list[icheck].time_over_threshold){
+          break;
+	}
+      } 
+
+
       hitfound = true; 
       //std::cout << "Hit Found in channel: " << tp_list[icheck].channel << std::endl;  
       // cout << "Next cordinates- Chnl " << tp_list_next[imaxadc].channel << " , tmin "  << tp_list_next[imaxadc].time_start << endl; 
@@ -901,6 +927,15 @@ int main()
                frontangle_bottom = (atan(slopecm_scale*float(frontslope_bottom)))*radTodeg;
                backangle_bottom = (atan(slopecm_scale*float(backslope_bottom)))*radTodeg;
 
+	       double angle_top = fabs(atan((frontslope_top - backslope_top) / (1 + frontslope_top * backslope_top)) * radTodeg);
+               double angle_mid = fabs(atan((frontslope_mid - backslope_mid) / (1 + frontslope_mid * backslope_mid)) * radTodeg);
+	       double angle_bottom = fabs(atan((frontslope_bottom - backslope_bottom) / (1 + frontslope_bottom * backslope_bottom)) * radTodeg);
+
+	       //	       cout << "new top: " << angle_top << " ," << angle_bottom  << " , " << angle_mid << endl;
+
+
+	       //cout << "angles: " << frontangle_top << " , " <<  backangle_top << "angles mid: " << frontangle_mid << " , " <<  backangle_mid << "angles bottom: " << frontangle_bottom << " , " <<  backangle_bottom << endl;
+	       /*
                double angletop = atan(slopecm_scale*fabs((backslope_top  - frontslope_top) / (1 + frontslope_top * backslope_top)));
                double angletopDeg = angletop*radTodeg;
 
@@ -914,19 +949,19 @@ int main()
 	       cout << "angle btw two tracks: " << anglemidDeg << " , " << angletopDeg << " , " <<  anglebottomDeg << endl;
 
 
-
-               peaklist.clear();
-               peaklist.push_back({tp_list_maxadc[imaxadc].frame, tp_list_maxadc[imaxadc].fem, tp_list_maxadc[imaxadc].channel,tp_list_maxadc[imaxadc].time_start,tp_list_maxadc[imaxadc].time_over_threshold,tp_list_maxadc[imaxadc].adc_peak,tp_list_maxadc[imaxadc].adc_integral,tp_list_maxadc[imaxadc].driftRegion, tp_list_maxadc[imaxadc].crateid, tp_list_maxadc[imaxadc].candidateBool, tp_list_maxadc[imaxadc].run, tp_list_maxadc[imaxadc].subrun});
+	       */
+               //peaklist.clear();
+               //peaklist.push_back({tp_list_maxadc[imaxadc].frame, tp_list_maxadc[imaxadc].fem, tp_list_maxadc[imaxadc].channel,tp_list_maxadc[imaxadc].time_start,tp_list_maxadc[imaxadc].time_over_threshold,tp_list_maxadc[imaxadc].adc_peak,tp_list_maxadc[imaxadc].adc_integral,tp_list_maxadc[imaxadc].driftRegion, tp_list_maxadc[imaxadc].crateid, tp_list_maxadc[imaxadc].candidateBool, tp_list_maxadc[imaxadc].run, tp_list_maxadc[imaxadc].subrun});
 	       //std::cout << " Front found corinates, Frame: " << tp_list_maxadc[imaxadc].frame << " , channel: " << tp_list_maxadc[imaxadc].channel << " , time: " << tp_list_maxadc[imaxadc].time_start <<" , integral: "      << tp_list_maxadc[imaxadc].adc_integral<< " , front channel: " <<  tp_list[icheck].channel << " , time: " <<  tp_list[icheck].time_start << " , dR: " << tp_list_maxadc[imaxadc].driftRegion  << std::endl;                                                  
 
-	     std::cout << "Back cordinates dR: " << tp_list_next[imaxadc].driftRegion <<  " , frame: " << tp_list_next[imaxadc].frame  << " , chnl: "  <<  tp_list_next[imaxadc].channel << " , time: " << tp_list_next[imaxadc].time_start << " , adc: " << tp_list_next[imaxadc].adc_integral << " , tot: " << tp_list_next[imaxadc].time_over_threshold << std::endl;
-	     std::cout << "sb channel: " << tp_list_sb[imaxadc].channel << " , time: " << tp_list_sb[imaxadc].time_start << std::endl;
+	       //std::cout << "Back cordinates dR: " << tp_list_next[imaxadc].driftRegion <<  " , frame: " << tp_list_next[imaxadc].frame  << " , chnl: "  <<  tp_list_next[imaxadc].channel << " , time: " << tp_list_next[imaxadc].time_start << " , adc: " << tp_list_next[imaxadc].adc_integral << " , tot: " << tp_list_next[imaxadc].time_over_threshold << std::endl;
+	       //std::cout << "sb channel: " << tp_list_sb[imaxadc].channel << " , time: " << tp_list_sb[imaxadc].time_start << std::endl;
 
 
 	     auto end2st = std::chrono::system_clock::now();
-	     auto elapsed2st = std::chrono::duration_cast<std::chrono::microseconds>(end2st - endr);
+	     auto elapsed2 = std::chrono::duration_cast<std::chrono::microseconds>(end2st - end2brg);
 
-	     std::cout << "time to trigger Stopping muon:" << std::dec << elapsed2st.count() << " microseconds" << std::endl;
+	     std::cout << "time to trigger Stopping muon:" << std::dec << elapsed2.count() << " microseconds" << std::endl;
 	     if(peaklist.size() != 0 ){
 	       std::cout << "Peaklist size: " << peaklist.size() << std::endl;
 	       zmq::message_t message1(sizeof(TriggerPrimitive) * peaklist.size());
@@ -934,21 +969,45 @@ int main()
 	       publisher.send(message1);
 	       peaklist.clear();
 	     }
+	     
+	     algtimefile.flush();
+             algtimefile << tp_list_maxadc[imaxadc].driftRegion << "\t" << elapsed2.count() << " \n" ;
 
-	     if (abs(frontangle_mid-backangle_mid)>30 or abs(frontangle_top-backangle_top)>30 or abs(frontangle_bottom-backangle_bottom)>30){
-	       trigtot += 1;
+	     cout << "mid: " << frontangle_mid-backangle_mid << "top: " << frontangle_top-backangle_top << "bottom: " <<  frontangle_bottom-backangle_bottom << endl;
+
+	     cout << "new top: " << angle_top << " ," << angle_bottom  << " , " << angle_mid << endl;
+
+	     //	     if (abs(frontangle_mid-backangle_mid)>0 and abs(frontangle_mid-backangle_mid)<150 and abs(frontangle_top-backangle_top)>0 and abs(frontangle_top-backangle_top)<150 and abs(frontangle_bottom-backangle_bottom)>0 and  abs(frontangle_bottom-backangle_bottom)<150){
+	       //	     if (abs(frontangle_mid-backangle_mid)>0 and abs(frontangle_top-backangle_top)>0 and abs(frontangle_bottom-backangle_bottom)>0){
+	       //	     if (abs(frontangle_mid-backangle_mid)>30 and abs(frontangle_top-backangle_top)>30 and abs(frontangle_bottom-backangle_bottom)>30){
+	     //           if(angle_top>30 and angle_mid>30 and angle_bottom>30){
+	     //	       if((angle_top>10 and angle_mid>10 and angle_bottom>10) or (abs(frontangle_mid-backangle_mid)>20) and abs(frontangle_top-backangle_top)>20 and abs(frontangle_bottom-backangle_bottom)>20){
+
+	     //	     if (abs(frontangle_mid-backangle_mid)>30 and abs(frontangle_mid-backangle_mid)<170  and abs(frontangle_top-backangle_top)>30 and abs(frontangle_top-backangle_top) < 170 and abs(frontangle_bottom-backangle_bottom)>30 and  abs(frontangle_bottom-backangle_bottom)<170){
+	     if (abs(frontangle_mid-backangle_mid)>30  or abs(frontangle_top-backangle_top)>30 or abs(frontangle_bottom-backangle_bottom)>30){
+
+
+	     trigtot += 1;
 
 	       candidateBool=1; // issue a candidate                                                                                                                                                                                                                                                                                                  
 	       std::cout <<" Trigger: " << trigtot << std::endl;
 	       peaklist.clear();
+	       auto end2 = std::chrono::system_clock::now();
+               auto elapsed2 = std::chrono::duration_cast<std::chrono::microseconds>(end2 - endr);
+
+
+	       outputFile1 << tp_list_maxadc[imaxadc].driftRegion   << "\t" << tp_list_maxadc[imaxadc].frame << "\t" << tp_list_maxadc[imaxadc].channel << "\t" << tp_list_maxadc[imaxadc].time_start << "\t" << tp_list_maxadc[imaxadc].adc_integral << "\t" << elapsed2.count() <<  "\t" <<  tp_list_maxadc[imaxadc].adc_peak <<  "\t" << elapsed2brg.count() << "\t" << abs(frontangle_mid-backangle_mid) << "\t" << abs(frontangle_top-backangle_top) << "\t" << abs(frontangle_bottom-backangle_bottom) <<  "\n";
+
+
+               outputFile1.flush();
+
 
 	       peaklist.push_back({tp_list_maxadc[imaxadc].frame, tp_list_maxadc[imaxadc].fem, tp_list_maxadc[imaxadc].channel,tp_list_maxadc[imaxadc].time_start,tp_list_maxadc[imaxadc].time_over_threshold,tp_list_maxadc[imaxadc].adc_peak,tp_list_maxadc[imaxadc].adc_integral,tp_list_maxadc[imaxadc].driftRegion, tp_list_maxadc[imaxadc].crateid, tp_list_maxadc[imaxadc].candidateBool, tp_list_maxadc[imaxadc].run, tp_list_maxadc[imaxadc].subrun});
 
 
 	       std::cout << " Front found corinates, Frame: " << tp_list_maxadc[imaxadc].frame << " , channel: " << tp_list_maxadc[imaxadc].channel << " , time: " << tp_list_maxadc[imaxadc].time_start <<" , integral: "<< tp_list_maxadc[imaxadc].adc_integral<< " , Back channel: " <<   tp_list[icheckb].channel << " , time: " <<  tp_list[icheckb].time_start << " , dR: " << tp_list_maxadc[imaxadc].driftRegion << std::endl;
-
-	       auto end2 = std::chrono::system_clock::now();
-	       auto elapsed2 = std::chrono::duration_cast<std::chrono::microseconds>(end2 - endr);
+	       algtimefile.flush();
+               algtimefile << tp_list_maxadc[imaxadc].driftRegion << "\t" << elapsed2.count() << " \n" ;
 
 	       std::cout << "time to trigger michel:" << std::dec << elapsed2.count() << " microseconds" << std::endl;
 
@@ -964,8 +1023,13 @@ int main()
 	       auto end2r = std::chrono::system_clock::now();
 	       auto elapsed2r = std::chrono::duration_cast<std::chrono::microseconds>(end2r - endr);
 	       std::cout << "Sent candidate decision: " << std::dec << elapsed2r.count() << " microseconds" << std::endl;
-	       peaklist.clear();
 
+	       //	       outputFile1 << tp_list_maxadc[imaxadc].driftRegion   << "\t" << tp_list_maxadc[imaxadc].frame << "\t" << tp_list_maxadc[imaxadc].channel << "\t" << tp_list_maxadc[imaxadc].time_start << "\t" << tp_list_maxadc[imaxadc].adc_integral << "\t" << elapsed2r.count() << "\n";
+
+               //outputFile1.flush();
+
+	       peaklist.clear();
+	       break;
 	     }
 	     else {
 	       break;
@@ -997,7 +1061,15 @@ int main()
 	     horiz_tt = prev_time_max;
 
 	   }
-	   if (tp_list[icheckb].channel == tp_list_next[imaxadc].channel) break;
+	   //	   if (tp_list[icheckb].channel == tp_list_next[imaxadc].channel) break;
+
+	   if (tp_list[icheckb].channel == tp_list_next[imaxadc].channel){
+	     if(tp_list[icheckb].time_start==tp_list_next[imaxadc].time_start + tp_list_next[imaxadc].time_over_threshold or tp_list_next[imaxadc].time_start==tp_list[icheckb].time_start + tp_list[icheckb].time_over_threshold){
+	       break;
+	     }
+	   } 
+
+
 	   hitfoundb = true;
 	   //cout << " bkwrd hit found " << endl; 
 	   tp_list_next[imaxadc].channel = tp_list[icheckb].channel;

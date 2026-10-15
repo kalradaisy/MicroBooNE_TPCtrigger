@@ -15,7 +15,7 @@
 #include <cstdint>
 //#include <filesystem>
 #include <boost/filesystem.hpp>
-
+#include <bitset>
 
 #include <chrono>
 
@@ -25,9 +25,44 @@
 
 #include <dirent.h>
 #include <cstring>
+#include <random>
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <sys/stat.h>
+
+void wait_for_start_signal(const char* signal_file) {
+  struct stat buffer;
+  while (stat(signal_file, &buffer) != 0) {
+    usleep(1000); // sleep for 1 ms
+  }
+}
 
 
 using namespace std;
+
+double adjustAmp(double amp) {
+  if (amp > 120 or amp<35) {
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::normal_distribution<double> distribution(80.0, 100.0); // Mean 60, Standard Deviation 100
+    //    std::poisson_distribution<int> distribution(60); // Poisson distribution with mean 60
+
+    double new_amp;
+    do {
+      new_amp = distribution(gen);
+    } while (new_amp < 5 || new_amp > 800); // Ensure it stays within the range
+
+    amp = new_amp;
+  }
+  return amp;
+}
+
+
+std::string toLowerCase(std::string s) {
+  std::transform(s.begin(), s.end(), s.begin(), ::tolower);
+  return s;
+}
 
 bool naturalSortComparator(const std::string& a, const std::string& b) {
   std::string::const_iterator it1 = a.begin();
@@ -81,6 +116,24 @@ struct ForChannelMap {
 
 };
 
+struct ForBaseline {
+  int seb = {0};
+  int sebfem   = {0};
+  int sebfemch    = {0};
+  int sebfemchped = {0};
+
+  ForBaseline(int seba, int sebfema, int sebfemcha, int sebfemchpeda)
+  {
+    seb = seba;
+    sebfem = sebfema;
+    sebfemch = sebfemcha;
+    sebfemchped = sebfemchpeda;
+  }
+
+
+
+};
+
 
 struct PassInfoToStitching {
   uint32_t minFrame = {0};
@@ -124,7 +177,8 @@ struct PassInfoToAlg {
   uint64_t intgrla= {0};
   int tda = {0};
   int detida = {0};
-  int runa={0};                                                                                                                                                            int subruna={0};                                                                                                                                                        
+  int runa={0};                                                                                                                                                         
+  int subruna={0};                                                                                                                                                        
 
   PassInfoToAlg(uint32_t fr4a, uint32_t fma, uint32_t mca, uint16_t tta, int tot1a, uint64_t ama, uint64_t ina, int tdda, int detidda, int rra, int rsa)             
 
@@ -146,6 +200,16 @@ struct PassInfoToAlg {
 
 };
 
+int nearestPowerOf2(double n1) {
+  // Find the exponent that is closest to log2(n1)                                                                                                     
+  int exponent = round(log2(n1));
+
+  // Compute the number closest to 2^exponent                                                                                                          
+  double closest = pow(2, exponent);
+
+  // Return the closest number                                                                                                                         
+  return static_cast<int>(closest);
+}
 
 
 int returnWire(int fcrate, int ffem, int fch, std::vector<ForChannelMap> fholdChMapIds){
@@ -161,32 +225,47 @@ int returnWire(int fcrate, int ffem, int fch, std::vector<ForChannelMap> fholdCh
     }
   }}
 
+int returnbaseline(int fseb, int fsebfem, int fsebfemch, std::vector<ForBaseline> fholdsebpeds){
+  int baseline;
+  for (int i=0; i<fholdsebpeds.size(); i++){
+
+    std::map<std::tuple<int,int,int>, int> multimap;
+    // std::cout << "Match SEB: " << fholdsebpeds[i].seb << ", " << fseb << "MatchFEM: " << fholdsebpeds[i].sebfem <<  "," << fsebfem << " Match FEM ch: " <<  fholdsebpeds[i].sebfemch  << "," << fsebfemch << std::endl;                                                        \
+                                                                                                                                          
+    if(fholdsebpeds[i].seb==fseb and fholdsebpeds[i].sebfem == fsebfem  and fholdsebpeds[i].sebfemch == fsebfemch) {
+      //std::cout << "Matched!!!!!!"  << fseb << "," << fsebfem << "," << fsebfemch << std::endl;                                        
+ 
+      std::tuple<int,int,int> key(fholdsebpeds[i].seb, fholdsebpeds[i].sebfem, fholdsebpeds[i].sebfemch);
+      int val = fholdsebpeds[i].sebfemchped;
+      multimap[key] = val;
+      baseline = multimap[key];
+      //std::cout << "baseline: " << baseline << std::endl;                                                                             
+  
+      return baseline;
+    }
+  }}
+
 
 int main(int argc, char** argv){
-//int main (int argc, char* argv[]){
-//int main(){
-//  zmq::context_t context(1);
-  // zmq::socket_t publisher(context, ZMQ_PUB);
-  //publisher.bind("tcp://127.0.0.1:7732");
-  //std::cout << "bind socket pub" << std::endl;
+  //  wait_for_start_signal("start.signal");
+  int CRATE=strtol(argv[1], nullptr, 0); 
 
   zmq::context_t context1(1);
   zmq::socket_t publisher(context1, ZMQ_PUB);
-  publisher.bind("tcp://127.0.0.1:7740"); // from 42                                                                                                                        
+  publisher.bind("tcp://127.0.0.1:7240");                                                                                                      
    
-
   zmq::context_t context2s(1);
   zmq::socket_t publisher2s(context2s, ZMQ_PUB);
-  publisher2s.bind("tcp://127.0.0.1:7742");
+ 
+  publisher2s.bind("tcp://127.0.0.1:7242"); 
   
 
   //For channel mapping                                                                                                                                                                            
 
   // int CRATE=strtol(argv[2], nullptr, 0); //Change for SEB                                                             
                                                     
-  int CRATE=strtol(argv[1], nullptr, 0); //Change for SEB  
+  //  int CRATE=strtol(argv[1], nullptr, 0); //Change for SEB  
    // int CRATE = 2;             
-
   std::vector<ForChannelMap> holdChMapIds;
   std::ifstream mapFile;
   mapFile.open("chmapnew.txt");
@@ -201,17 +280,51 @@ int main(int argc, char** argv){
   std::ofstream tptimeFile;
   tptimeFile.open(argv[4]);
 
+  std::ofstream outFile;
+  outFile.open(argv[5]);
+
+  int dataset=strtol(argv[6], nullptr, 0);
+
+  //  uint64_t limit= 25;  //strtol(argv[7], nullptr, 0);
+  int limit  = strtol(argv[7], nullptr, 0); // 50;//11;12 gives us multiple peaks
+  int limit1 = strtol(argv[8], nullptr, 0); // 16;
+  int limit3=4;
+  int addADC=2;
+  //  uint64_t limit2= 3000;
+  //  uint64_t limit3= 15;
+  // int64_t limit3 = 25; //strtol(argv[8], nullptr, 0);
+//50;
+
+  std::vector<ForBaseline> holdsebpeds;
+  std::ifstream pedFile;
+  pedFile.open("baseline.txt");
+  //  int pedestal;                                                                                                                       
+  //change in different seb files
+  int myseb=CRATE;
+
+  int sebfemchped,sebfemch, sebfem, seb, baseline,countflipbit;
+  countflipbit=0;
+  if(pedFile.is_open() && !pedFile.eof()) {
+    while(pedFile >> seb >> sebfem >> sebfemch >> sebfemchped ){  // FemId >> ChnlId){                                                   \
+                                                                                                                                          
+      //      holdChMapIds.push_back({crate,femchmap,ch,LArWire});                                                                       \
+                                                                                                                                          
+      holdsebpeds.emplace_back(seb, sebfem,sebfemch,sebfemchped);
+    }
+  }
+  pedFile.close();
+
   
 
   string plane;
   int LArWire;
   int mwire;
   int crate, femchmap, ch;
-  int savetd, savetd2;
-  int savedr, savedr2;
+  int savetd;
+  int savetd2;
+  int savedr;
+  int savedr2;
   uint32_t savefr,savefr2;
-
-
   int mappedwire;
   if(mapFile.is_open() && !mapFile.eof()) {
     while(mapFile >> plane >> LArWire >> crate >> femchmap >> ch ){  // FemId >> ChnlId){                                                                                                          
@@ -234,13 +347,44 @@ int main(int argc, char** argv){
   int channel,channel1, mappedchannel;
   uint16_t timetick=0;
 
+  uint64_t adcval, amp, intgrl; // intgrlval;                                                                                                             
+  // uint64_t limit=50;
+  //  uint64_t limit2=8000;
+  int countFlipBit=0;
+  int totval=1;
+  int diff,diffcheck,nearestPower,diffprev;
+  std::vector<int> adcdiff;
+
+  int samplecount;
+
   int tot;
-  uint64_t adcval, amp, intgrl; // intgrlval;                                                                                                                                                     
+  uint64_t adcvalremainder, prevadcval, prevprevadcval;// baseline;
+  bool inFrame, countadc;
+  countadc=false;
+  inFrame=false;
+  //  adcvalremainder=0;
+  //adcval=480;
+  //baseline=480;
+
+                                          
   int run,subrun;
+
+  std::vector<std::pair<std::string, int>> huffmanTable = {
+    {"1", 0},
+    {"01", -1},
+    {"001", 1},
+    {"0001", -2},
+    {"00001", 2},
+    {"000001", -3},
+    {"0000001", 3}
+  };
+
+
+
 
   std::ifstream binFile;
   bool doincrement=false;
-
+  bool proceed=false;
 
   //binFile.open("/home/uboonedaq/kalra_seb01/Files/test2.ubdaq", std::ios::binary);
 
@@ -248,10 +392,13 @@ int main(int argc, char** argv){
                           
 
 
-
- std::string pattern = "seb04";
+  //change seb number in diifferent instances
+  std::string pattern = "seb0"+std::to_string(CRATE);
  // const char* directory = "/data/kalra_TPCTriggerFiles/Nominal54/"; // "/home/uboonedaq/kalra_seb01/Files/54/";
- const char* directory = "/data/kalra_TPCTriggerFiles/Nom_plus_20/";
+  //  const char* 
+    std::string directory1 = "/data/kalra_TPCTriggerFiles/Nom_plus_"+std::to_string(dataset);//OlduBSNFIle/"; // Nom_plus_0/";
+    const char* directory = directory1.c_str();
+
  DIR* dir = opendir(directory);
  if (dir == nullptr) {
    std::cerr << "Error opening directory." << std::endl;
@@ -279,16 +426,23 @@ int main(int argc, char** argv){
 
  bool goStitch=false;
 
+
+ auto startf = std::chrono::system_clock::now();
  for (const auto& filename : filenames) {
    
    std::cout << "Found file: " << filename <<  std::endl;   
        //   std::ifstream binFile;
-       binFile.open("/data/kalra_TPCTriggerFiles/Nom_plus_20/"+filename, std::ios::binary);
+   binFile.open("/data/kalra_TPCTriggerFiles/Nom_plus_"+std::to_string(dataset)+"/"+filename, std::ios::binary);
+       auto endf = std::chrono::system_clock::now();
+       auto elapsedf = std::chrono::duration_cast<std::chrono::microseconds>(endf - startf);
+       std::cout << "time to open a file: " << std::dec << elapsedf.count() << " microseconds" << std::endl;
 
-       std::string runNumber = filename.substr(42,5);                                                                                                           
-       run = std::stoi(runNumber);                                                                                                                                 
-       std::string subrunNumber = filename.substr(48,5);                                                                                                           
-       subrun = std::stoi(subrunNumber);                                                                                                                           
+      
+       //       std::string runNumber =  filename.substr(42,5);                                                                                                        
+   
+            run = 16656;// std::stoi(runNumber);                                                                                                                                 
+       // std::string subrunNumber = filename.substr(48,5);                                                                                                           
+        subrun = 23; // std::stoi(subrunNumber);                                                                                                                           
        //       std::cout << "Run: " << run <<  " ,Subrun " << subrun << std::endl; 
            
 
@@ -316,30 +470,47 @@ int main(int argc, char** argv){
 
     uint16_t first16b = word32b & 0xffff; //right 16 bit word                                                                                                                                      
     uint16_t last16b = (word32b>>16) & 0xffff; // left 16 bit word                                                                                                                                 
+    /*
+    std::cout << "32-bit word- " << word32b << " \t" << "made from - " << last16b << first16b << std::endl;
 
-    //    std::cout << "32-bit word- " << word32b << " \t" << "made from - " << last16b << first16b << std::endl;
+    cout << "first16b " << std::hex << first16b << std::endl;
+    cout << "last16b "<< std::hex << last16b << std::endl;
 
+    cout << "32-bit word: 0x" << hex << word32b << endl;
+    cout << "Extracted first16b: 0x" << hex << first16b 
+         << " (Binary: " << bitset<16>(first16b) << ")" << endl;
+    cout << "Extracted last16b: 0x" << hex << last16b 
+         << " (Binary: " << bitset<16>(last16b) << ")" << endl;
 
-    // auto start = std::chrono::system_clock::now();
-    //    cout << "Initial : "<<std::dec << start.time_since_epoch().count()  << endl;                                                                                                     
+    uint16_t mask = 0x8000;
+    cout << "Mask: " << bitset<16>(mask) << endl;
+    cout << "Bitwise AND result: " << bitset<16>(first16b & mask) << endl;
+    */
+
+    //auto start = std::chrono::system_clock::now();
+    // cout << "Word32b : " << word32b <<  endl; //<<std::dec << start.time_since_epoch().count()  << endl;                                                                    
+    //cout << "right bits: " << first16b << " , left bits: " << last16b << endl;                     
+             
     if(word32b == 0xffffffff) {
-      //      cout << "Start of frame ********************" << endl;
+      cout << "Start of frame ********************" << endl;
       femHdrCount=1;
       doincrement=true;
+      inFrame=true;
       start = std::chrono::system_clock::now();
+      //cout << "tplist at frame beginning: " << std::dec << tp_list.size() << endl;
     }
     else if (word32b  == 0xe0000000){
-      // cout << "End of frame*******************" << endl;
+     cout << "End of frame*******************" << endl;
       auto end = std::chrono::system_clock::now();
       auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
 
       //      auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
       std::cout << "Elapsed time (eof): " << std::dec << elapsed.count() << " microseconds" << std::endl;
+      //      cout << "check frame4: " << frame4 << endl;
 
       if(frame4==minFrame+2){
         //Pass the tp_list to next stitching code and then clear the list, for now checking the size of tp_list here and then clearing the tp_list                                                 
         // --> Need to put interfacing code here                                                                                                                                                   
-
         cout << "Size of tp_list vector at the end of 3 frames : " << std::dec << tp_list.size() << endl;
 
 	goStitch=true;
@@ -348,11 +519,11 @@ int main(int argc, char** argv){
 
              else if (frame4!=minFrame+2 and frame4==minFrame+5){
 
-	       cout << "Size of tp_list vector at the end of 3 frames : " << std::dec << tp_list.size() << endl;
+	       cout << " second Size of tp_list vector at the end of 3 frames : " << tp_list.size() << endl;
         goStitch=true;
         //cout <<"GoStitchTrue 2" << endl;
 
-	 }
+	     }
 
 	if(goStitch==true){
 	  //cout << "hello" << endl;
@@ -360,7 +531,7 @@ int main(int argc, char** argv){
 	  //Stitching code starts here -
 	  std::vector<int> readTP;
 	  int min1p=0;
-	  int cratenum=4;
+	  int cratenum=2;
 	  int tmin=0;
 	  int tmax=3200;
 	  int tdrift=4600;
@@ -398,6 +569,8 @@ int main(int argc, char** argv){
 	  int minp2 = 0;
 	  int tdiffP =tdiff;
 	  std::vector<int> hitlist;
+	  int colplstart = 2976;
+	  int step = 96;
 	  std::vector<PassInfoToAlg> stitchedTP_part1;
 	  std::vector<PassInfoToAlg> stitchedTP_part2;
 
@@ -410,9 +583,10 @@ int main(int argc, char** argv){
 
 
 	  for (const auto& elem : tp_list) {
-
+	    //cout << "check elem: " << elem.mappedchannel << " , " << elem.timetick << " , " <<  elem.tot<< endl;
+	    //	    if(elem.mappedchannel!=0 and elem.timetick!=0 and elem.tot!=0 and elem.intgrl!=0){
 	    min1p=elem.minFrame;
-
+	    //cout << "frame: " << elem.frame4 << "min frame: " << elem.minFrame << endl;
             if(elem.frame4==min1p){
               if(FirstTime==true){
                 // cout << "first td and min1p, tdiff, tDiff : " <<  td << " , " << min1p << " , " << readTP[4] << " , " << tdiff << " , " << tDiff << endl;                   
@@ -428,6 +602,7 @@ int main(int argc, char** argv){
                 tDiff_sf1 =tDiff;
 		if(elem.timetick>=tmin && elem.timetick<=tmax){
 		  if (td==min1p){
+		    //	    cout <<"tot check" << elem.tot << endl;
                     stitchedTP_part1.emplace_back(elem.frame4,elem.fem, elem.mappedchannel, elem.timetick, elem.tot, elem.amp,elem.intgrl,td, cratenum,run,subrun);
 
                     cout << "size of stitchTPPart1 t=minp: " << stitchedTP_part1.size() << endl;                                                                             
@@ -736,32 +911,32 @@ int main(int argc, char** argv){
 	  cout << "Size of stitchedTP_part2: " << stitchedTP_part2.size() << endl;                                                                                                   
 	  cout << "size: " << stitchedTP_part1.size()+stitchedTP_part2.size()+stitchedTP2.size() << endl;    
 
+	  //	  std::cout << "First savedr: " << savedr << " , " << savedr2 << std::endl;
 
 	  if(stitchedTP_part1.size()>1 and stitchedTP_part2.size()>1){
-            savedr=stitchedTP_part1[0].tda;
-            savedr2=stitchedTP_part2[0].tda;
-
-            savefr=stitchedTP_part1[0].frame4a;
-            savefr2=stitchedTP_part2[0].frame4a;
-
-	    std::cout << "savedr 1 : " << savedr << " , " <<savedr2<< std::endl;
+	    savedr=stitchedTP_part1[0].tda;
+	    savedr2=stitchedTP_part2[0].tda;
+	   
+	    savefr=stitchedTP_part1[0].frame4a;
+	    savefr2=stitchedTP_part2[0].frame4a;
+	   
+	    std::cout << "savedr 1 : " << savedr << " , " <<savedr2<< std::endl;   
 	    zmq::message_t message1(sizeof(PassInfoToAlg) * stitchedTP_part1.size());
             memcpy(message1.data(), stitchedTP_part1.data(), sizeof(PassInfoToAlg) * stitchedTP_part1.size());
             publisher.send(message1);
-
 	    zmq::message_t message2(sizeof(PassInfoToAlg) * stitchedTP_part2.size());
             memcpy(message2.data(), stitchedTP_part2.data(), sizeof(PassInfoToAlg) * stitchedTP_part2.size());
             publisher2s.send(message2);
 
-          }
+	  }
 
 
-          else if (stitchedTP_part1.size()==1 and stitchedTP_part2.size()>1 )
-            {
-              stitchedTP_part1[0].tda=savedr+3;
-              stitchedTP_part1[0].frame4a=savefr+1;
+	  else if (stitchedTP_part1.size()==1 and stitchedTP_part2.size()>1 )
+	    {
+	      stitchedTP_part1[0].tda=savedr+3;
+	      stitchedTP_part1[0].frame4a=savefr+1;
 	      std::cout << "st: " <<  stitchedTP_part1[0].tda << " , " <<  stitchedTP_part1[0].frame4a << std::endl;
-              savedr2=stitchedTP_part2[0].tda;
+	      savedr2=stitchedTP_part2[0].tda;
 	      std::cout << "savedr 2 : " << savedr << " , " <<savedr2<< std::endl;
 	      zmq::message_t message1(sizeof(PassInfoToAlg) * stitchedTP_part1.size());
               memcpy(message1.data(), stitchedTP_part1.data(), sizeof(PassInfoToAlg) * stitchedTP_part1.size());
@@ -771,45 +946,63 @@ int main(int argc, char** argv){
               memcpy(message2.data(), stitchedTP_part2.data(), sizeof(PassInfoToAlg) * stitchedTP_part2.size());
               publisher2s.send(message2);
 
+}
+	      else if (stitchedTP_part1.size()==0 and stitchedTP_part2.size()>1 )
+	      {
+		stitchedTP_part1.emplace_back(savefr+1,0, 0, 0, 0, 0,0,savedr+3, cratenum,run,subrun);
+	      
+		savedr2=stitchedTP_part2[0].tda;
+		std::cout << "savedr 2 : " << savedr << " , " <<savedr2<< std::endl;
+		zmq::message_t message1(sizeof(PassInfoToAlg) * stitchedTP_part1.size());
+		memcpy(message1.data(), stitchedTP_part1.data(), sizeof(PassInfoToAlg) * stitchedTP_part1.size());
+		publisher.send(message1);
+		
+		zmq::message_t message2(sizeof(PassInfoToAlg) * stitchedTP_part2.size());
+		memcpy(message2.data(), stitchedTP_part2.data(), sizeof(PassInfoToAlg) * stitchedTP_part2.size());
+		publisher2s.send(message2);
 	    }
-	  else if (stitchedTP_part1.size()==0 and stitchedTP_part2.size()>1 )
-	    {
-	      stitchedTP_part1.emplace_back(savefr+1,0, 0, 0, 0, 0,0,savedr+3, cratenum,run,subrun);
-
-	      savedr2=stitchedTP_part2[0].tda;
-	      std::cout << "savedr 2 : " << savedr << " , " <<savedr2<< std::endl;
-	      zmq::message_t message1(sizeof(PassInfoToAlg) * stitchedTP_part1.size());
-	      memcpy(message1.data(), stitchedTP_part1.data(), sizeof(PassInfoToAlg) * stitchedTP_part1.size());
-	      publisher.send(message1);
-
-	      zmq::message_t message2(sizeof(PassInfoToAlg) * stitchedTP_part2.size());
-	      memcpy(message2.data(), stitchedTP_part2.data(), sizeof(PassInfoToAlg) * stitchedTP_part2.size());
-	      publisher2s.send(message2);
-            }
 
 
 
-          else if (stitchedTP_part1.size()>1 and stitchedTP_part2.size()==1 )
+	  else if (stitchedTP_part1.size()>1 and stitchedTP_part2.size()==1 )
             {
+	     
+		stitchedTP_part2[0].tda=savedr2+3;
+		stitchedTP_part2[0].frame4a=savefr2+1;
+		savedr=stitchedTP_part1[0].tda;
+		std::cout << "savedr 3 : " << savedr << " , " <<savedr2<< std::endl;
+		zmq::message_t message1(sizeof(PassInfoToAlg) * stitchedTP_part1.size());
+		memcpy(message1.data(), stitchedTP_part1.data(), sizeof(PassInfoToAlg) * stitchedTP_part1.size());
+		publisher.send(message1);
 
-	      stitchedTP_part2[0].tda=savedr2+3;
-	      stitchedTP_part2[0].frame4a=savefr2+1;
-	      savedr=stitchedTP_part1[0].tda;
-	      std::cout << "savedr 3 : " << savedr << " , " <<savedr2<< std::endl;
-	      zmq::message_t message1(sizeof(PassInfoToAlg) * stitchedTP_part1.size());
-	      memcpy(message1.data(), stitchedTP_part1.data(), sizeof(PassInfoToAlg) * stitchedTP_part1.size());
-	      publisher.send(message1);
+		zmq::message_t message2(sizeof(PassInfoToAlg) * stitchedTP_part2.size());
+		memcpy(message2.data(), stitchedTP_part2.data(), sizeof(PassInfoToAlg) * stitchedTP_part2.size());
+		publisher2s.send(message2);
+ 
+	    }
+	  else if(stitchedTP_part1.size()>1 and stitchedTP_part2.size()==0){
+                stitchedTP_part2.emplace_back(savefr2+1,0, 0, 0, 0, 0,0,savedr2+3, cratenum,run,subrun);
+              
+		savedr=stitchedTP_part1[0].tda;
+		std::cout << "savedr 3 : " << savedr << " , " <<savedr2<< std::endl;
+		zmq::message_t message1(sizeof(PassInfoToAlg) * stitchedTP_part1.size());
+		memcpy(message1.data(), stitchedTP_part1.data(), sizeof(PassInfoToAlg) * stitchedTP_part1.size());
+		publisher.send(message1);
 
 	      zmq::message_t message2(sizeof(PassInfoToAlg) * stitchedTP_part2.size());
-	      memcpy(message2.data(), stitchedTP_part2.data(), sizeof(PassInfoToAlg) * stitchedTP_part2.size());
-	      publisher2s.send(message2);
-
+              memcpy(message2.data(), stitchedTP_part2.data(), sizeof(PassInfoToAlg) * stitchedTP_part2.size());
+              publisher2s.send(message2);
             }
-          else if(stitchedTP_part1.size()>1 and stitchedTP_part2.size()==0){
-	    stitchedTP_part2.emplace_back(savefr2+1,0, 0, 0, 0, 0,0,savedr2+3, cratenum,run,subrun);
 
-	    savedr=stitchedTP_part1[0].tda;
-	    std::cout << "savedr 3 : " << savedr << " , " <<savedr2<< std::endl;
+	  else{
+
+	    //	    stitchedTP_part2[0].tda=savedr2+3;
+	    //stitchedTP_part1[0].tda=savedr+3;
+	    //stitchedTP_part2[0].frame4a=savefr2+1;
+            //stitchedTP_part1[0].frame4a=savefr+1;
+	    stitchedTP_part2.emplace_back(savefr2+1,0, 0, 0, 0, 0,0,savedr2+3, cratenum,run,subrun);
+	    stitchedTP_part1.emplace_back(savefr+1,0, 0, 0, 0, 0,0,savedr+3, cratenum,run,subrun);
+	    std::cout << "savedr 4 : " << savedr << " , " <<savedr2<< std::endl;
 	    zmq::message_t message1(sizeof(PassInfoToAlg) * stitchedTP_part1.size());
 	    memcpy(message1.data(), stitchedTP_part1.data(), sizeof(PassInfoToAlg) * stitchedTP_part1.size());
 	    publisher.send(message1);
@@ -819,29 +1012,14 @@ int main(int argc, char** argv){
 	    publisher2s.send(message2);
 	  }
 
-          else{
-
-            //      stitchedTP_part2[0].tda=savedr2+3;                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        
-            //stitchedTP_part1[0].tda=savedr+3;                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               
-            //stitchedTP_part2[0].frame4a=savefr2+1;                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          
-            //stitchedTP_part1[0].frame4a=savefr+1;                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           
-            stitchedTP_part2.emplace_back(savefr2+1,0, 0, 0, 0, 0,0,savedr2+3, cratenum,run,subrun);
-            stitchedTP_part1.emplace_back(savefr+1,0, 0, 0, 0, 0,0,savedr+3, cratenum,run,subrun);
-	    std::cout << "savedr 4 : " << savedr << " , " <<savedr2<< std::endl;
-	    zmq::message_t message1(sizeof(PassInfoToAlg) * stitchedTP_part1.size());
-            memcpy(message1.data(), stitchedTP_part1.data(), sizeof(PassInfoToAlg) * stitchedTP_part1.size());
-            publisher.send(message1);
-
-	    zmq::message_t message2(sizeof(PassInfoToAlg) * stitchedTP_part2.size());
-            memcpy(message2.data(), stitchedTP_part2.data(), sizeof(PassInfoToAlg) * stitchedTP_part2.size());
-            publisher2s.send(message2);
-          }
 
 
-	
+	  //	  std::cout << "savedr 1 : " << savedr << " , " <<savedr2<< std::endl;
+	  //std::cout << "savedr 2: " << savedr << " , " <<savedr2<< std::endl;
+
 
 	  auto end2dr = std::chrono::system_clock::now();
-	  auto elapsed2dr = std::chrono::duration_cast<std::chrono::microseconds>(end2dr - start);
+	  auto elapsed2dr = std::chrono::duration_cast<std::chrono::microseconds>(end2dr - start); //endf); // start);
 	  std::cout << "Sent 2 drift regions. : " << std::dec << elapsed2dr.count() << " microseconds" << std::endl;
 
 	  cout << "Size of tp_list: " << tp_list.size() << endl;
@@ -851,44 +1029,45 @@ int main(int argc, char** argv){
 	    outputFile << elem.minFrame << " \t" << elem.frame4  << " \t" <<   elem.fem  << " \t" <<   elem.mappedchannel    << " \t" << elem.timetick    << " \t" <<  elem.tot << " \t" << elem.amp << " \t" << elem.intgrl <<  " \n" ; //<< elem.run << " \t" << elem.subrun << " \n";  
 	  }
 
-	  std::cout << "first save td 1: " << savetd << " , " << savetd2 << std::endl;   
-	  std::cout << "size: " << stitchedTP_part1.size() << " , " << stitchedTP_part2.size() << std::endl; 
-	  if(stitchedTP_part2.size()>1 and stitchedTP_part1.size()>1){
-	    savetd=0;
-	    savetd2=0;
-	    //std::cout << "stda " << stitchedTP_part1[1].tda << std::endl;
 
-	    tptimeFile << stitchedTP_part1[1].tda << " \t" <<   stitchedTP_part1.size() << " \t" << stitchedTP_part2[1].tda << " \t" << stitchedTP_part2.size() << "\t" << elapsed2dr.count() << "\n";
+          if(stitchedTP_part2.size()>1 and stitchedTP_part1.size()>1){
+            savetd=0;
+            savetd2=0;
+            //std::cout << "stda " << stitchedTP_part1[1].tda << std::endl;                                                                                                                                                                                                                     
+
+            tptimeFile << stitchedTP_part1[1].tda << " \t" <<   stitchedTP_part1.size() << " \t" << stitchedTP_part2[1].tda << " \t" << stitchedTP_part2.size() << "\t" << elapsed2dr.count() << "\n";
 
             savetd=stitchedTP_part1[1].tda;
             savetd2=stitchedTP_part2[1].tda;
 
-            std::cout << "save td 1: " << savetd << " , " << savetd2 << std::endl;                                                                                                                                                                                                            
+	    std::cout << "save td 1: " << savetd << " , " << savetd2 << std::endl;
 
           }
           else if (stitchedTP_part1.size()<=1 and stitchedTP_part2.size()>1 )
             {
-	      savetd=savetd+3;
+              savetd=savetd+3;
               savetd2=stitchedTP_part2[1].tda;
-	      tptimeFile << savetd << " \t" <<   stitchedTP_part1.size() << " \t" << stitchedTP_part2[1].tda << " \t" << stitchedTP_part2.size() << "\t" << elapsed2dr.count() << "\n";
-             std::cout << "save td 2: " << savetd << " , " << savetd2 << std::endl;                                                                                                                                                                                                        
-	    }
+              tptimeFile << savetd << " \t" <<   stitchedTP_part1.size() << " \t" << stitchedTP_part2[1].tda << " \t" << stitchedTP_part2.size() << "\t" << elapsed2dr.count() << "\n";
+	      std::cout << "save td 2: " << savetd << " , " << savetd2 << std::endl;
+            }
           else if (stitchedTP_part2.size()<=1 and stitchedTP_part1.size()>1 )
             {
-	      savetd=stitchedTP_part1[1].tda;
+              savetd=stitchedTP_part1[1].tda;
               savetd2=savetd2+3;
 
               tptimeFile << stitchedTP_part1[1].tda << " \t" <<   stitchedTP_part1.size() << " \t" << savetd2 << " \t" << stitchedTP_part2.size() << "\t" << elapsed2dr.count() << "\n";
-	      //              savetd=stitchedTP_part1[1].tda;
-              //savetd2=savetd2+3;
-              std::cout << "save td 3 : " << savetd << " , " << savetd2 << std::endl;                                                                                                                                                                                                         
+              //              savetd=stitchedTP_part1[1].tda;                                                                                                                                                                                                                                   
+              //savetd2=savetd2+3;                                                                                                                                                                                                                                                              
+	      std::cout << "save td 3 : " << savetd << " , " << savetd2 << std::endl;
 
             }
-          else{ // if (stitchedTP_part1.size()<=1 and stitchedTP_part2.size()<=1) {                                                                                                                                                                                                             
+          else{ // if (stitchedTP_part1.size()<=1 and stitchedTP_part2.size()<=1) {                                                                                                                                                                                                            \
+                                                                                                                                                                                                                                                                                                
 
-            std::cout << "save td 4 : " << savetd << " , " << savetd2 << std::endl;                                                                                                                                                                                                           
+	    std::cout << "save td 4 : " << savetd << " , " << savetd2 << std::endl;
             tptimeFile << savetd+3 << " \t" <<   stitchedTP_part1.size()  << " \t" << savetd2+3 << " \t" << stitchedTP_part2.size() << "\t" << elapsed2dr.count() << "\n";
           }
+
 
 
 	  if(stitchedTP_part1.size()!=0){
@@ -898,7 +1077,7 @@ int main(int argc, char** argv){
                                                                                                                                                                                
 	  }                                                                                                                                                                 }         
               
-	  if(stitchedTP_part2.size()!=0){  
+	  if(stitchedTP_part2.size()!=0){   //here tota
 	  for (const auto& elem : stitchedTP_part2) {
             outputFile1 << elem.tda << " \t" << elem.frame4a << " \t" << elem.fema << " \t" << elem.mappedchannela << " \t" << elem.timeticka << " \t" << elem.tota << " \t" << elem.ampa << " \t" << elem.intgrla << " \n";
 
@@ -916,17 +1095,19 @@ int main(int argc, char** argv){
 	  stitchedTP_part2.clear();    
 	  std::cout << "gostitch false " << std::endl;
 	  goStitch=false;
-	}
+	  } // end of tp_list
  
 	//FrameCounter=0;
         //tp_list.clear();
 
 	//}
+	inFrame=false;    
     }
 
     else {
-
-      if(doincrement==true){ //we need this boolean so as to stop FEM cntr after evaluating frame number.                                                                                                                                                             
+      //      cout << std::dec <<  "inFrame" << inFrame << "doincrement" << doincrement << endl;
+      if(inFrame==true) {
+	if(doincrement==true){ //we need this boolean so as to stop FEM cntr after evaluating frame number.   
         femHdrCount+=1;
 
         if (femHdrCount==5){ // FEM frame number                                                                                                                                                                                                                      
@@ -935,14 +1116,14 @@ int main(int argc, char** argv){
           framebitsToskip = (last16b & 0x3f);   // last 6 bits of FEM frame number                                                                                                                                                                                    
         }
 
-        if (femHdrCount==8){ //ROI frame number                                                                                                                                                                                                                       
+          if (femHdrCount==8){ //ROI frame number                                                                                                                                                                                                                       
           if(first16b>>12 == 0x1){
             frame2=(first16b>>6) & 0x3f;
             //Take care of roll over of bits                                                                                                                                                                                                                          
             if ((framebitsToskip-frame2)>=0){
               frame3 = (frame<<12)+(frame1<<6)+(frame2);
               frame4 = (frame3 & 0xffffff);
-	      // std::cout <<"Frame: " <<  std::dec << frame4 << std::endl;     
+	      std::cout <<"Frame: " <<  std::dec << frame4 << std::endl;     
 	      if(frame4>1){  //!=0){                                                                                                                                                                                                                                  
 		FrameCounter+=1;
               }
@@ -980,7 +1161,7 @@ int main(int argc, char** argv){
               //std::cout << "diff. : " << (framebitsToskip-frame2)<< " and dec is: " << std::dec <<  (framebitsToskip-frame2) << std::endl;                                                                                                                          
               frame3 = (frame<<12)+(frame1<<6)+(frame2);
               frame4 = (frame3 & 0xffffff);
-	      //std::cout<<"Frame L: " <<  std::dec << frame4 << std::endl;
+	      std::cout<<"Frame L: " <<  std::dec << frame4 << std::endl;
 	      if(frame4>1){ //!=0){                                                                                                                                                                                                                                   
                 FrameCounter+=1;
               }
@@ -1004,164 +1185,1083 @@ int main(int argc, char** argv){
 
         } //close femhdrcnt == 8                                                                                                                                                                                                                                      
 
-      } //close do increment loop                                                                                                                                                                                  
+	} //close do increment loop                                                                                                                                                                                  
       //      else{ // if doincrement is not true                                                 
-
+     
       if ((last16b >>8 == 0xf1) and (first16b == 0xffff)){
         fem =(last16b&0x1f);
-	// std::cout << "FEM number : " << std::dec << fem << std::endl;                                                                                                                                                                                               
+        //std::cout << "FEM number : " << std::dec << fem << std::endl;                                                                                                                                                 
+	countadc=false;                                  
       }
-
+     
+       
       if(first16b>>12 == 0x1){
-        channel = (first16b & 0x3f);
+	channel = (first16b & 0x3f);
+	//	std::cout << std::hex << first16b << std::endl;
 	//std::cout <<  "Channel Number: " << std::dec << channel << std::endl;
-	//std::cout << CRATE << std::endl;
 	mappedchannel = returnWire(CRATE,fem,channel,holdChMapIds);
-	//	std::cout <<  "All Channel Number: " << " \t" << mappedchannel << std::endl;
-
-
-	adcval=0;
+	baseline =  returnbaseline(myseb,fem,channel,holdsebpeds);
+	//std::cout <<  "Pedestal for channel is:  " << std::dec << baseline << std::endl;
+	prevadcval=baseline;
+	prevprevadcval=baseline;
         tot=0;
         intgrl=0;
         amp=0;
+	samplecount=0;
+	//	prevadcval=adcval;
+	//baseline=adcval;
 
       }
+      //# Check for Beginning of Waveform Packet: 0b01??????????????                                                                                                                                                                            
+      else if ((first16b & 0xC000) == 0x4000){
+	//   cout << " ******* beg. of waveform " << std::hex << first16b << endl;
+	proceed=true;
 
-      else if (first16b>>14 == 01){
-
-      	if(tot!=0 and amp!=0 and intgrl!=0 and frame4>1){
-	  std::cout <<"************* First 16 bits loop *********" << std::endl;
-	  std::cout << "Check Frame: " <<std::dec << frame4 << std::endl; //hex_to_decimal_32u(frame4) << std::endl;                                                                                 
-	  std::cout << "FEM number : " << std::dec << fem << std::endl;
-	  std::cout <<  " Channel Number: " << std::dec << channel << std::endl;
-	  std::cout << "ChannelMap : "<< CRATE << " , " << fem << " , " << channel << std::endl;
-	  std::cout << "mapped wire: " << std::dec << mappedchannel << std::endl;
-	  std::cout << "Final adc val: " << std::dec  << amp << std::endl;
-	  std::cout << "tot: " <<  tot << std::endl;
-	  std::cout << "intgrl: " << std::dec << intgrl << std::endl;
-	  std::cout << "time: " << std::dec << timetick << std::endl;
-	  
-          if(channel>31 and channel<64){
-	    tp_list.emplace_back(minFrame,frame4,fem,mappedchannel,timetick,tot,amp,intgrl); //,run,subrun);
-	  }
-	  }
-	
-      timetick =  first16b & 0x3fff ;
-      // std::cout << "time: " << std::dec << timetick << std::endl;                          
-      //std::cout << "TPs:  " << amp << " tot: " << tot << " integral: " << intgrl << std::endl;    
-
-      adcval=0;
-      tot=0;
-      intgrl=0;
-      amp = 0;
-      }
-     
-      
-      else if (first16b>>12 == 0x2){
-	tot+=1;
-	adcval=(first16b & 0xfff);
-	if (adcval > amp){
-	  amp= adcval; //(first16b & 0xfff);                                                                                                                                                      
-	  //	  std::cout << "ADC amp: " << std::dec << amp << std::endl;
-
-	}
-
-	intgrl += (first16b & 0xfff);
-	//std::cout << "intgrl: " << std::dec << intgrl << std::endl;  
-	//	std::cout << "TPs:  " << amp << " tot: " << tot << " integral: " << intgrl << std::endl;                              
-                                           
-      }
-    else if (first16b>>12 == 0x3){
-      tot+=1;
-
-      adcval=(first16b & 0xfff);
-      if (adcval > amp){
-	amp= adcval; //(first16b & 0xfff);                                                                                                                                                        
-      }
-      intgrl += (first16b & 0xfff);
-      //std::cout << "firstloop check adcavl 0x3:  " << amp << " tot: " << tot << " integral: " << intgrl << std::endl;                                                                                
-
-    }
- 
-     if(last16b>>12 == 0x1){
-        channel = (last16b & 0x3f);
-	//std::cout <<  "All Channel Number last: " << std::dec << channel << std::endl;
-	//std::cout << CRATE << std::endl;
-	mappedchannel = returnWire(CRATE,fem,channel,holdChMapIds);
-	//std::cout <<  "All Channel Number last: " << std::dec << channel << " \t" << mappedchannel << std::endl;
-
-	adcval=0;
-        tot=0;
-	intgrl=0;
-        amp=0;
-      }
-
-      
-     
-     else if (last16b>>14 == 01){
-       if(tot!=0 and amp!=0 and intgrl!=0 and frame4>1){
-	  std::cout <<"************* Last 16 bits loop *********" << std::endl;
-	  std::cout << "Check Frame: " << std::dec << frame4 << std::endl; //hex_to_decim
-	  std::cout << "FEM number : " << std::dec << fem << std::endl;
-	  std::cout <<  " Channel Number: " << std::dec << channel << std::endl;
-	  std::cout << "ChannelMap : "<< CRATE << " , " << fem << " , " << channel << std::endl;
-	  std::cout << "mapped wire: " << std::dec << mappedchannel << std::endl;
-	  std::cout << "Final adc val: " << std::dec  << amp << std::endl;
-	  std::cout << "tot: " <<  tot << std::endl;
-	  std::cout << "intgrl: " << std::dec << intgrl << std::endl;
-	  std::cout << "time: " << std::dec << timetick << std::endl;
-
-	  if(channel>31 and channel<64){
-	    tp_list.emplace_back(minFrame,frame4,fem,mappedchannel,timetick,tot,amp,intgrl); //,run,subrun);
-	  }
-	  }
-
-	timetick =  last16b & 0x3fff ;
-        //std::cout << "time last " << std::dec << timetick << std::endl;                                                                                                                                      // std::cout << "TPs:  " << amp << " tot: " << tot << " integral: " << intgrl << std::endl;
-
-	adcval=0;
+	samplecount=0;      
 	tot=0;
 	intgrl=0;
 	amp=0;
+       
+	timetick =  first16b & 0x3fff ;
+	//        std::cout << "time: " << std::dec << timetick << std::endl;                          
+	countadc=true;
+	//	std::cout << first16b << std::endl;
+	//	cout << "beginning of waveform: adcval, prevadcval, baseline: " << std::dec << adcval << " , " << prevadcval << " , " << baseline << endl;
+	//cout <<std::dec << timetick <<endl;
       }
-      
-     else if (last16b>>12 == 0x2){
-	tot+=1;
-	adcval=(last16b & 0xfff);
-	if (adcval > amp){
-	  amp= adcval; //(first16b & 0xfff);                                                                          \                                                                                     
 
-        }
-	intgrl += (last16b & 0xfff);
-	//	std::cout << "intgrl last: " << std::dec << intgrl << std::endl;  
-}
-    else if (last16b>>12 == 0x3){
-	tot+=1;
-	adcval=(last16b & 0xfff);
-	if (adcval > amp){
-	  amp= adcval; //(first16b & 0xfff);                                                                          \                                                                                     
+      else if (first16b>>12 == 0x3){
+        //std::cout << "End of waveform packet " <<std::hex <<  word32b << " , " << first16b << std::endl; 
 
+	adcval=(first16b & 0xfff);                          
+	//cout <<"End of waveform: adcval, prevadcval, baseline: "<< std::dec << adcval << " , " << prevadcval << " , " << static_cast<int>(adcval) - static_cast<int>(prevadcval) << endl;
+
+	tot=tot+1;
+        diffcheck=static_cast<int>(adcval) - static_cast<int>(prevadcval);  
+
+	if(diffcheck > limit) {
+
+	  diff = abs(static_cast<int>(adcval) - static_cast<int>(prevadcval));
+	  nearestPower = nearestPowerOf2(diff);                                                                                                                                                                              
+	  adcval = abs(static_cast<int>(adcval)-static_cast<int>(nearestPower));	 
+	  diffcheck=static_cast<int>(adcval) - static_cast<int>(prevadcval);  
+
+	  if(diffcheck > limit1) {
+
+	    diff = abs(static_cast<int>(adcval) - static_cast<int>(prevadcval));
+	    nearestPower = nearestPowerOf2(diff);
+	    adcval = abs(static_cast<int>(adcval)-static_cast<int>(nearestPower));
+	    prevprevadcval=prevadcval;
+	    prevadcval=adcval;
+	    adcvalremainder=std::abs(static_cast<int>(adcval)-static_cast<int>(baseline));
+	    outFile << frame4 << " \t" << fem << " \t" << channel << " \t" << timetick << " \t" << samplecount << " \t" << adcval << " \t" << adcvalremainder << " \n";
+	    outFile.flush();
+
+	  }
+
+	  else if(diffcheck < -limit1) {
+
+            diff = abs(static_cast<int>(adcval) - static_cast<int>(prevadcval));
+            nearestPower = nearestPowerOf2(diff);
+            adcval = abs(static_cast<int>(adcval)+static_cast<int>(nearestPower));
+            prevprevadcval=prevadcval;
+            prevadcval=adcval;
+            adcvalremainder=std::abs(static_cast<int>(adcval)-static_cast<int>(baseline));
+            outFile << frame4 << " \t" << fem << " \t" << channel << " \t" << timetick << " \t" << samplecount << " \t" << adcval << " \t" << adcvalremainder << " \n";
+            outFile.flush();
+
+          }
+
+
+	  else{
+	    prevprevadcval=prevadcval;
+            prevadcval=adcval;
+            adcvalremainder=std::abs(static_cast<int>(adcval)-static_cast<int>(baseline));
+            outFile << frame4 << " \t" << fem << " \t" << channel << " \t" << timetick << " \t" << samplecount << " \t" << adcval << " \t" << adcvalremainder << " \n";
+            outFile.flush();
+
+
+
+	  }
 	}
-	intgrl += (last16b & 0xfff);
 
-    }
-      else{
-	continue;
+
+	else if(diffcheck < -limit) {
+
+          diff = abs(static_cast<int>(adcval) - static_cast<int>(prevadcval));
+          nearestPower = nearestPowerOf2(diff);
+          adcval = abs(static_cast<int>(adcval)+static_cast<int>(nearestPower));
+          diffcheck=static_cast<int>(adcval) - static_cast<int>(prevadcval);
+
+          if(diffcheck < -limit1) {
+
+            diff = abs(static_cast<int>(adcval) - static_cast<int>(prevadcval));
+            nearestPower = nearestPowerOf2(diff);
+            adcval = abs(static_cast<int>(adcval)+static_cast<int>(nearestPower));
+            prevprevadcval=prevadcval;
+            prevadcval=adcval;
+            adcvalremainder=std::abs(static_cast<int>(adcval)-static_cast<int>(baseline));
+            outFile << frame4 << " \t" << fem << " \t" << channel << " \t" << timetick << " \t" << samplecount << " \t" << adcval << " \t" << adcvalremainder << " \n";
+            outFile.flush();
+
+          }
+
+	  else if(diffcheck > limit1) {
+
+            diff = abs(static_cast<int>(adcval) - static_cast<int>(prevadcval));
+            nearestPower = nearestPowerOf2(diff);
+            adcval = abs(static_cast<int>(adcval)-static_cast<int>(nearestPower));
+            prevprevadcval=prevadcval;
+            prevadcval=adcval;
+            adcvalremainder=std::abs(static_cast<int>(adcval)-static_cast<int>(baseline));
+            outFile << frame4 << " \t" << fem << " \t" << channel << " \t" << timetick << " \t" << samplecount << " \t" << adcval << " \t" << adcvalremainder << " \n";
+            outFile.flush();
+
+          }
+
+          else{
+            prevprevadcval=prevadcval;
+            prevadcval=adcval;
+            adcvalremainder=std::abs(static_cast<int>(adcval)-static_cast<int>(baseline));
+            outFile << frame4 << " \t" << fem << " \t" << channel << " \t" << timetick << " \t" << samplecount << " \t" << adcval << " \t" << adcvalremainder << " \n";
+            outFile.flush();
+
+
+
+          }
+	}
+
+
+
+	  else{
+	    prevprevadcval=prevadcval;
+	    prevadcval=adcval; 
+	    adcvalremainder=std::abs(static_cast<int>(adcval)-static_cast<int>(baseline));
+	    //	    cout << "adcval, prevadcval,adcvalrem " << adcval << "\t" << prevadcval << "\t" << adcvalremainder << endl; 
+	    outFile << frame4 << " \t" << fem << " \t" << channel << " \t" << timetick << " \t" << samplecount  << " \t" << adcval << "\t" << adcvalremainder << " \n";
+	    outFile.flush();
+	  
+	  }
+    
+      	
+        if(adcvalremainder>amp){
+	   amp=adcvalremainder;
+	   //	   if(amp>120 or amp<35){
+	   // amp = adjustAmp(amp); // rand() % 71 + 30;
+	   //adcvalremainder=amp;
+	     
+	     //adcvalremainder=60;
+	   }
+	 
+	 intgrl +=adcvalremainder;
+
+	 /*	 if(adcval>amp){
+           amp=adcval;
+         }
+         intgrl +=adcval;
+	 */
+	  if(tot!=0 and amp!=0 and intgrl!=0 and frame4>1 and tot>totval){
+	    std::cout <<"************* First 16 bits loop *********" << std::endl;
+	    std::cout << "Check Frame: " <<std::dec << frame4 << std::endl; //hex_to_decimal_32u(frame4) << std::endl;                                                       
+	    std::cout << "FEM number : " << std::dec << fem << std::endl;
+	    std::cout <<  " Channel Number: " << std::dec << channel << std::endl;
+	    std::cout << "ChannelMap : "<< CRATE << " , " << fem << " , " << channel << std::endl;
+	    std::cout << "mapped wire: " << std::dec << mappedchannel << std::endl;
+	    std::cout << "Amp: " << std::dec  << amp << std::endl;
+	    std::cout << "tot: " <<  tot << std::endl;
+	    std::cout << "intgrl: " << std::dec << intgrl << std::endl;
+	    std::cout << "time: " << std::dec << timetick << std::endl;
+	                                                                                                                                                                     
+	    if(channel>31 and channel<64){                                                                                                                                   
+	      tp_list.emplace_back(minFrame,frame4,fem,mappedchannel,timetick,tot,amp,intgrl); //,run,subrun);                                                                                                             
+	    }
+	  }
+     
+
+	samplecount++;
+	countadc=false;
+	//cout << "countadc false " << countadc << endl;                                                                                                                     
       }
+
+	else if (first16b>>12 == 0x2){
+	  tot=tot+1;
+	  adcval=(first16b & 0xfff);
+
+	  diffcheck=static_cast<int>(adcval) - static_cast<int>(prevadcval);  
+
+
+	  if(diffcheck > limit) {
+                     
+	    diff = abs(static_cast<int>(adcval) - static_cast<int>(prevadcval));
+	    nearestPower = nearestPowerOf2(diff);
+	    adcval = abs(static_cast<int>(adcval)-static_cast<int>(nearestPower));
+	    diffcheck=static_cast<int>(adcval) - static_cast<int>(prevadcval);  
+
+
+	    if(diffcheck > limit1) {
+
+
+	      diff = abs(static_cast<int>(adcval) - static_cast<int>(prevadcval));
+	      nearestPower = nearestPowerOf2(diff);
+	      adcval = abs(static_cast<int>(adcval)-static_cast<int>(nearestPower));
+	      prevprevadcval=prevadcval;
+	      prevadcval=adcval;
+	      adcvalremainder=std::abs(static_cast<int>(adcval)-static_cast<int>(baseline));
+	      outFile << frame4 << " \t" << fem << " \t" << channel << " \t" << timetick << " \t" << samplecount << " \t" << adcval << " \t" << adcvalremainder << " \n";
+	      outFile.flush();
+
+	    }
+	    else if(diffcheck < -limit1) {
+
+              diff = abs(static_cast<int>(adcval) - static_cast<int>(prevadcval));
+              nearestPower = nearestPowerOf2(diff);
+              adcval = abs(static_cast<int>(adcval)+static_cast<int>(nearestPower));
+              prevprevadcval=prevadcval;
+              prevadcval=adcval;
+              adcvalremainder=std::abs(static_cast<int>(adcval)-static_cast<int>(baseline));
+              outFile << frame4 << " \t" << fem << " \t" << channel << " \t" << timetick << " \t" << samplecount << " \t" << adcval << " \t" << adcvalremainder << " \n";
+              outFile.flush();
+
+            }
+
+	    else{
+		  prevprevadcval=prevadcval;
+		  prevadcval=adcval;
+		  adcvalremainder=std::abs(static_cast<int>(adcval)-static_cast<int>(baseline));
+		  outFile << frame4 << " \t" << fem << " \t" << channel << " \t" << timetick << " \t" << samplecount << " \t" << adcval << " \t" << adcvalremainder << " \n";
+		  outFile.flush();
+		}
+	  }
+
+
+	  else if(diffcheck < -limit) {
+
+	    diff = abs(static_cast<int>(adcval) - static_cast<int>(prevadcval));
+	    nearestPower = nearestPowerOf2(diff);
+	    adcval = abs(static_cast<int>(adcval)+static_cast<int>(nearestPower));
+	    diffcheck=static_cast<int>(adcval) - static_cast<int>(prevadcval);
+
+	    if(diffcheck < -limit1) {
+
+	      diff = abs(static_cast<int>(adcval) - static_cast<int>(prevadcval));
+	      nearestPower = nearestPowerOf2(diff);
+	      adcval = abs(static_cast<int>(adcval)+static_cast<int>(nearestPower));
+	      prevprevadcval=prevadcval;
+	      prevadcval=adcval;
+	      adcvalremainder=std::abs(static_cast<int>(adcval)-static_cast<int>(baseline));
+	      outFile << frame4 << " \t" << fem << " \t" << channel << " \t" << timetick << " \t" << samplecount << " \t" << adcval << " \t" << adcvalremainder << " \n";
+	      outFile.flush();
+
+	    }
+
+	    else if(diffcheck > limit1) {
+
+	      diff = abs(static_cast<int>(adcval) - static_cast<int>(prevadcval));
+	      nearestPower = nearestPowerOf2(diff);
+	      adcval = abs(static_cast<int>(adcval)-static_cast<int>(nearestPower));
+	      prevprevadcval=prevadcval;
+	      prevadcval=adcval;
+	      adcvalremainder=std::abs(static_cast<int>(adcval)-static_cast<int>(baseline));
+	      outFile << frame4 << " \t" << fem << " \t" << channel << " \t" << timetick << " \t" << samplecount << " \t" << adcval << " \t" << adcvalremainder << " \n";
+	      outFile.flush();
+
+	    }
+
+	    else{
+	      prevprevadcval=prevadcval;
+	      prevadcval=adcval;
+	      adcvalremainder=std::abs(static_cast<int>(adcval)-static_cast<int>(baseline));
+	      outFile << frame4 << " \t" << fem << " \t" << channel << " \t" << timetick << " \t" << samplecount << " \t" << adcval << " \t" << adcvalremainder << " \n";
+	      outFile.flush();
+
+
+
+	    }
+	  }
+
+
+
+	    else{
+	      prevprevadcval=prevadcval;
+	      prevadcval=adcval;
+	      adcvalremainder=std::abs(static_cast<int>(adcval)-static_cast<int>(baseline));
+	      //      cout << "adcval, prevadcval,adcvalrem " << adcval << "\t" << prevadcval << "\t" << adcvalremainder << endl;                                                                                   
+	      outFile << frame4 << " \t" << fem << " \t" << channel << " \t" << timetick << " \t" << samplecount  << " \t" << adcval << "\t" << adcvalremainder << " \n";
+	      outFile.flush();
+
+	    }
+
+
+	  
+	  /*
+	  if(adcval>amp){
+	    amp=adcval;
+	  }
+	  intgrl +=adcval;
+
+
+	  */
+	  if(adcvalremainder>amp){
+	    amp=adcvalremainder;
+	    //std::cout << "Amplitude 1: " << amp << std::endl;                                                                                                                          
+	    //  if(amp>120 or amp<35){
+	    //amp =  adjustAmp(amp); // rand() % 71 + 30;
+	    // adcvalremainder=amp;
+	      //	      amp=60;
+	      //adcvalremainder=60;
+	    //}
+                                                               
+	  }
+	  intgrl +=adcvalremainder;
+	 
+
+	  samplecount++;
+	}
+
+	// Check for Huffman-Coded Data Word: 0b1???????????????                                                                                                      
+      //   if (static_cast<uint16_t>(first16b & 0x8000) == static_cast<uint16_t>(0x8000)) {                                                                      
+        //      else if ((static_cast<uint16_t>(first16b) & 0x8000) == 0x8000) {                                                                                       
+	else if ((first16b & 0x8000) == 0x8000) { // Top bit is "1" \                                                                                           
+	//else if ((first16b & 0x8000) != 0) { 
+	  //	  cout <<" f huffman"<<endl;
+   uint16_t huffmanData = first16b & 0x7FFF; // Extract the 15 lower bits                                                                                       \
  
+   std::string binary = std::bitset<15>(huffmanData).to_string();
+   //   std::cout << "Binary (before reverse): " << binary << std::endl;
+
+   std::reverse(binary.begin(), binary.end());
+   //   std::cout << "Binary (after reverse):  " << binary << std::endl;
+	  size_t pos = 0;
+
+	  while (pos < binary.size()) {
+	    if (binary[pos] == '1') {
+	      //	      std::cout << "Found '1' at position: " << pos << "\n";
+
+	      // Count consecutive zeros after the current '1'
+	      int zeroCount = 0;
+	      size_t nextPos = pos + 1;
+	      while (nextPos < binary.size() && binary[nextPos] == '0') {
+                ++zeroCount;
+                ++nextPos;
+	      }
+
+
+	      switch (zeroCount) {
+	      case 0: adcdiff.emplace_back(0); break;  // 1
+	      case 1: adcdiff.emplace_back(-1); break; // 01
+	      case 2: adcdiff.emplace_back(+1); break; // 001
+	      case 3: adcdiff.emplace_back(-2); break; // 0001
+	      case 4: adcdiff.emplace_back(+2); break; // 00001
+	      case 5: adcdiff.emplace_back(-3); break; // 000001
+	      case 6: adcdiff.emplace_back(+3); break; // 0000001
+	      default: break; // Ignore if zeroCount exceeds the pattern
+	      }
+
+	      // Move position to the next '1' or end of the zeros
+	      pos = nextPos;
+	    } else {
+	      // Skip over '0's that are not after a '1'
+	      //std::cout << "Skipping '0' at position: " << pos << "\n";
+	      ++pos;
+	    }
+	  }
+	  // std::cout << adcdiff.size() << std::endl;
+
+	  for (int d : adcdiff){
+	    adcval += d;
+	    tot=tot+1;
+
+	    //std::cout << "H1 adc value: " << std::dec << adcval << " \t" << prevadcval << std::endl;
+	    diffcheck=static_cast<int>(adcval) - static_cast<int>(prevadcval);  
+
+
+	    if(diffcheck > limit) {
+                       
+	      diff = abs(static_cast<int>(adcval) - static_cast<int>(prevadcval));
+	      nearestPower = nearestPowerOf2(diff);
+	      adcval = abs(static_cast<int>(adcval)-static_cast<int>(nearestPower));
+
+	      diffcheck=static_cast<int>(adcval) - static_cast<int>(prevadcval);  
+
+
+	      if(diffcheck > limit1) {
+
+		diff = abs(static_cast<int>(adcval) - static_cast<int>(prevadcval));
+		nearestPower = nearestPowerOf2(diff);
+		adcval = abs(static_cast<int>(adcval)-static_cast<int>(nearestPower));
+		prevprevadcval=prevadcval;
+		prevadcval=adcval;
+		adcvalremainder=std::abs(static_cast<int>(adcval)-static_cast<int>(baseline));
+		outFile << frame4 << " \t" << fem << " \t" << channel << " \t" << timetick << " \t" << samplecount << " \t" << adcval << " \t" << adcvalremainder << " \n";
+		outFile.flush();
+
+	      }
+
+	     else if(diffcheck < -limit1) {
+
+		  diff = abs(static_cast<int>(adcval) - static_cast<int>(prevadcval));
+		  nearestPower = nearestPowerOf2(diff);
+		  adcval = abs(static_cast<int>(adcval)+static_cast<int>(nearestPower));
+		  prevprevadcval=prevadcval;
+		  prevadcval=adcval;
+		  adcvalremainder=std::abs(static_cast<int>(adcval)-static_cast<int>(baseline));
+		  outFile << frame4 << " \t" << fem << " \t" << channel << " \t" << timetick << " \t" << samplecount << " \t" << adcval << " \t" << adcvalremainder << " \n";
+		  outFile.flush();
+
+		}
+
+	      else{
+		    prevprevadcval=prevadcval;
+		    prevadcval=adcval;
+		    adcvalremainder=std::abs(static_cast<int>(adcval)-static_cast<int>(baseline));
+		    outFile << frame4 << " \t" << fem << " \t" << channel << " \t" << timetick << " \t" << samplecount << " \t" << adcval << " \t" << adcvalremainder << " \n";
+		    outFile.flush();
+		  }
+	    }
+	    
+
+
+	    else if(diffcheck < -limit) {
+
+	      diff = abs(static_cast<int>(adcval) - static_cast<int>(prevadcval));
+	      nearestPower = nearestPowerOf2(diff);
+	      adcval = abs(static_cast<int>(adcval)+static_cast<int>(nearestPower));
+	      diffcheck=static_cast<int>(adcval) - static_cast<int>(prevadcval);
+
+	      if(diffcheck < -limit1) {
+
+		diff = abs(static_cast<int>(adcval) - static_cast<int>(prevadcval));
+		nearestPower = nearestPowerOf2(diff);
+		adcval = abs(static_cast<int>(adcval)+static_cast<int>(nearestPower));
+		prevprevadcval=prevadcval;
+		prevadcval=adcval;
+		adcvalremainder=std::abs(static_cast<int>(adcval)-static_cast<int>(baseline));
+		outFile << frame4 << " \t" << fem << " \t" << channel << " \t" << timetick << " \t" << samplecount << " \t" << adcval << " \t" << adcvalremainder << " \n";
+		outFile.flush();
+
+	      }
+	      else if(diffcheck > limit1) {
+
+                diff = abs(static_cast<int>(adcval) - static_cast<int>(prevadcval));
+                nearestPower = nearestPowerOf2(diff);
+                adcval = abs(static_cast<int>(adcval)-static_cast<int>(nearestPower));
+                prevprevadcval=prevadcval;
+                prevadcval=adcval;
+                adcvalremainder=std::abs(static_cast<int>(adcval)-static_cast<int>(baseline));
+                outFile << frame4 << " \t" << fem << " \t" << channel << " \t" << timetick << " \t" << samplecount << " \t" << adcval << " \t" << adcvalremainder << " \n";
+                outFile.flush();
+
+              }
+
+	      else{
+		prevprevadcval=prevadcval;
+		prevadcval=adcval;
+		adcvalremainder=std::abs(static_cast<int>(adcval)-static_cast<int>(baseline));
+		outFile << frame4 << " \t" << fem << " \t" << channel << " \t" << timetick << " \t" << samplecount << " \t" << adcval << " \t" << adcvalremainder << " \n";
+		outFile.flush();
+
+
+
+	      }
+	    }
+
+
+
+
+	      else{
+		prevprevadcval=prevadcval;
+		prevadcval=adcval;
+		adcvalremainder=std::abs(static_cast<int>(adcval)-static_cast<int>(baseline));
+		//     cout << "adcval, prevadcval,adcvalrem " << adcval << "\t" << prevadcval << "\t" << adcvalremainder << endl;                                                                                   
+		outFile << frame4 << " \t" << fem << " \t" << channel << " \t" << timetick << " \t" << samplecount  << " \t" << adcval << "\t" << adcvalremainder << " \n";
+		outFile.flush();
+
+	      }
+	    
+
+	    /*   if(adcval>amp){
+	      amp=adcval;
+	    }
+	    intgrl +=adcval;
+
+
+	    */
+	    if(adcvalremainder>amp){
+	      amp=adcvalremainder;
+                     
+	      //  if(amp>120 or amp<35){
+	      //amp =  adjustAmp(amp); //rand() % 71 + 30;
+	      // adcvalremainder=amp;
+		//		amp=60;
+		//adcvalremainder=60;
+	      //}
+      
+	    }
+	    intgrl +=adcvalremainder;
+
+
+		samplecount++;
+	  }
+	  adcdiff.clear();
+	}
+
+  
+      if(last16b>>12 == 0x1){
+	//	std::cout <<  "hex last Channel Number: " << std::hex << last16b << std::endl;
+	channel = (last16b & 0x3f);
+	//std::cout << last16b << std::endl;
+
+        //std::cout <<  "last Channel Number: " << std::dec << channel << std::endl;                                                                                                                                                      
+        //std::cout << CRATE << std::endl;                                                                                                                                                                                           
+        mappedchannel = returnWire(CRATE,fem,channel,holdChMapIds);
+	//std::cout <<  "larsoft Channel Number: " << " \t" << mappedchannel << std::endl;
+        //std::cout << "Start of channel : " << std::dec << channel << std::endl;                                                                                                                                                    
+	baseline = returnbaseline(myseb,fem,channel,holdsebpeds);
+	//	std::cout <<  "Pedestal for channel is:  " << std::dec << baseline << std::endl;
+
+	prevadcval=baseline;
+	prevprevadcval=baseline;
+
+        tot=0;
+        intgrl=0;
+        amp=0;
+        samplecount=0;
+	//        prevadcval=adcval;
+        //baseline=adcval;
+	//outFile << frame4 << " \t" << fem << " \t" << channel << " \t" << timetick << " \t" << samplecount  << " \t" << adcvalremainder << " \n";
+      }
+     
+     
+      else if ((last16b & 0xC000) == 0x4000){ //      else if (last16b>>14 == 01){
+	//cout <<" ******* last beg. of waveform " << std::hex << last16b << endl;
+	//cout << "TP: "<< std::dec  << tot<< " , " << amp<< " , " << intgrl << endl;
+        proceed=true;
+    	tot=0;
+        intgrl=0;
+        amp=0;
+	samplecount=0;
+
+	timetick =  last16b & 0x3fff ;
+	//	cout << std::dec << timetick <<endl;
+	//	prevadcval=baseline; //adcval;
+	//	baseline=adcval;
+	//outFile << frame4 << " \t" << fem << " \t" << channel << " \t" << timetick << " \t" << samplecount << " \t" << adcvalremainder << " \n";
+	//	tot=tot+1;
+        //cout <<"Tot count: " << std::dec << tot << endl;
+	//cout <<"Tot count: " << std::dec <<  channel << " , " << timetick << " , "  << tot << endl;
+
+	countadc=true;
+	//std::cout << last16b << std::endl;
+
+	//cout <<" l beginning of waveform: adcval, prevadcval, baseline: "<< std::dec << adcval << " , " << prevadcval << " , " << baseline << endl;
+	cout << std::dec << timetick << endl;
+
+      }
+
+      //if(countadc==true){
+      else if (last16b>>12 == 0x2){
+	  tot=tot+1;
+	  adcval=(last16b & 0xfff);
+	  //std::cout << "l1 adc value: " << std::dec << adcval << " \t" << prevadcval << std::endl;
+	  //cout <<"L1 adcval, prevadcval, baseline: "<< std::dec << adcval << " , " << prevadcval << " , " << static_cast<int>(adcval) - static_cast<int>(prevadcval) << endl;
+
+	  diffcheck=static_cast<int>(adcval) - static_cast<int>(prevadcval);  
+
+
+	  if(diffcheck > limit) {
+	    diff = abs(static_cast<int>(adcval) - static_cast<int>(prevadcval));
+	    nearestPower = nearestPowerOf2(diff);
+	    adcval = abs(static_cast<int>(adcval)-static_cast<int>(nearestPower));
+	   
+	    diffcheck=static_cast<int>(adcval) - static_cast<int>(prevadcval);  
+
+
+	    if(diffcheck > limit1) {
+	      diff = abs(static_cast<int>(adcval) - static_cast<int>(prevadcval));
+	      nearestPower = nearestPowerOf2(diff);
+	      adcval = abs(static_cast<int>(adcval)-static_cast<int>(nearestPower));
+	      prevadcval=adcval;
+	      adcvalremainder=std::abs(static_cast<int>(adcval)-static_cast<int>(baseline));
+	      outFile << frame4 << " \t" << fem << " \t" << channel << " \t" << timetick << " \t" << samplecount << " \t" << adcval << " \t" << adcvalremainder << " \n";
+	      outFile.flush();
+
+	    }
+
+	    else if(diffcheck < -limit1) {
+
+              diff = abs(static_cast<int>(adcval) - static_cast<int>(prevadcval));
+              nearestPower = nearestPowerOf2(diff);
+              adcval = abs(static_cast<int>(adcval)+static_cast<int>(nearestPower));
+              prevprevadcval=prevadcval;
+              prevadcval=adcval;
+              adcvalremainder=std::abs(static_cast<int>(adcval)-static_cast<int>(baseline));
+              outFile << frame4 << " \t" << fem << " \t" << channel << " \t" << timetick << " \t" << samplecount << " \t" << adcval << " \t" << adcvalremainder << " \n";
+              outFile.flush();
+
+            }	    
+
+	    else{
+	      prevprevadcval=prevadcval;
+	      prevadcval=adcval;
+	      adcvalremainder=std::abs(static_cast<int>(adcval)-static_cast<int>(baseline));
+                       
+	      outFile << frame4 << " \t" << fem << " \t" << channel << " \t" << timetick << " \t" << samplecount  << " \t" << adcval << "\t" << adcvalremainder << " \n";
+	      outFile.flush();
+
+	    }
+	  }
+	  
+
+
+	  else if(diffcheck < -limit) {
+
+	    diff = abs(static_cast<int>(adcval) - static_cast<int>(prevadcval));
+	    nearestPower = nearestPowerOf2(diff);
+	    adcval = abs(static_cast<int>(adcval)+static_cast<int>(nearestPower));
+	    diffcheck=static_cast<int>(adcval) - static_cast<int>(prevadcval);
+
+	    if(diffcheck < -limit1) {
+
+	      diff = abs(static_cast<int>(adcval) - static_cast<int>(prevadcval));
+	      nearestPower = nearestPowerOf2(diff);
+	      adcval = abs(static_cast<int>(adcval)+static_cast<int>(nearestPower));
+	      prevprevadcval=prevadcval;
+	      prevadcval=adcval;
+	      adcvalremainder=std::abs(static_cast<int>(adcval)-static_cast<int>(baseline));
+	      outFile << frame4 << " \t" << fem << " \t" << channel << " \t" << timetick << " \t" << samplecount << " \t" << adcval << " \t" << adcvalremainder << " \n";
+	      outFile.flush();
+
+	    }
+
+	    else if(diffcheck > limit1) {
+              diff = abs(static_cast<int>(adcval) - static_cast<int>(prevadcval));
+              nearestPower = nearestPowerOf2(diff);
+              adcval = abs(static_cast<int>(adcval)-static_cast<int>(nearestPower));
+              prevadcval=adcval;
+              adcvalremainder=std::abs(static_cast<int>(adcval)-static_cast<int>(baseline));
+              outFile << frame4 << " \t" << fem << " \t" << channel << " \t" << timetick << " \t" << samplecount << " \t" << adcval << " \t" << adcvalremainder << " \n";
+              outFile.flush();
+
+            }
+
+	    else{
+	      prevprevadcval=prevadcval;
+	      prevadcval=adcval;
+	      adcvalremainder=std::abs(static_cast<int>(adcval)-static_cast<int>(baseline));
+	      outFile << frame4 << " \t" << fem << " \t" << channel << " \t" << timetick << " \t" << samplecount << " \t" << adcval << " \t" << adcvalremainder << " \n";
+	      outFile.flush();
+
+
+
+	    }
+	  }
+
+
+	  else{
+	    prevprevadcval=prevadcval;
+	    prevadcval=adcval;
+	    adcvalremainder=std::abs(static_cast<int>(adcval)-static_cast<int>(baseline));
+            
+	    outFile << frame4 << " \t" << fem << " \t" << channel << " \t" << timetick << " \t" << samplecount  << " \t" << adcval << "\t" << adcvalremainder << " \n";
+	    outFile.flush();
+	    
+	  }
+
+	  /*	  if(adcval>amp){
+	    amp=adcval;
+	  }
+	  intgrl +=adcval;
+
+
+	  */
+	  if(adcvalremainder>amp){
+	    amp=adcvalremainder;
+	    //  if(amp>120 or amp<35){
+	    //amp =  adjustAmp(amp); // rand() % 71 + 30;
+	    //adcvalremainder=amp;
+	      //	      amp=60;
+	      //adcvalremainder=60;
+	    //    /}
+
+	  }
+	  intgrl += adcvalremainder;
+	 
+	  samplecount++;
+      }
+
+      else if ((last16b & 0x8000) != 0) { 
+	//       if (static_cast<uint16_t>(first16b & 0x8000) == static_cast<uint16_t>(0x8000)) { 
+	//      else if ((static_cast<uint16_t>(first16b) & 0x8000) == 0x8000) { 
+      //	else if ((last16b & 0x8000) == 0x8000) { // Top bit is "1" \
+	// cout <<"huffman"<<endl;           
+	  uint16_t huffmanData = last16b & 0x7FFF; // Extract the 15 lower bits                                                                                                            
+	  std::string binary = std::bitset<15>(huffmanData).to_string();
+	  // std::cout << "Binary (before reverse): " << binary << std::endl;
+
+	  std::reverse(binary.begin(), binary.end());
+	  //std::cout << "Binary (after reverse):  " << binary << std::endl;
+
+          size_t pos = 0;
+
+          while (pos < binary.size()) {
+            if (binary[pos] == '1') {
+              int zeroCount = 0;
+              size_t nextPos = pos + 1;
+              while (nextPos < binary.size() && binary[nextPos] == '0') {
+                ++zeroCount;
+                ++nextPos;
+              }
+
+
+              switch (zeroCount) {
+              case 0: adcdiff.emplace_back(0); break;                                                                                                                                                                                                         
+              case 1: adcdiff.emplace_back(-1); break;
+              case 2: adcdiff.emplace_back(+1); break;
+              case 3: adcdiff.emplace_back(-2); break;
+              case 4: adcdiff.emplace_back(+2); break;
+              case 5: adcdiff.emplace_back(-3); break;
+              case 6: adcdiff.emplace_back(+3); break;
+              default: break;                   
+              }
+                                                
+              pos = nextPos;
+            } else {
+              ++pos;
+            }
+          }
+
+	  cout <<adcdiff.size()<<endl;
+          for (int d : adcdiff){
+		adcval += d;
+		tot=tot+1;
+		//	cout <<"LH1 adcval, prevadcval, baseline: "<< std::dec << adcval << " , " << prevadcval << " , " << static_cast<int>(adcval) - static_cast<int>(prevadcval) << endl;
+
+		//std::cout << "hl1 adc value: " << std::dec << adcval << " \t" << prevadcval << std::endl;
+
+		diffcheck=static_cast<int>(adcval) - static_cast<int>(prevadcval);  
+
+
+		if(diffcheck > limit) {
+		  diff = abs(static_cast<int>(adcval) - static_cast<int>(prevadcval));
+		  nearestPower = nearestPowerOf2(diff);
+		  adcval = abs(static_cast<int>(adcval)-static_cast<int>(nearestPower));
+		  diffcheck=static_cast<int>(adcval) - static_cast<int>(prevadcval);  
+
+
+		  if(diffcheck > limit1) {
+
+		    diff = abs(static_cast<int>(adcval) - static_cast<int>(prevadcval));
+		    nearestPower = nearestPowerOf2(diff);
+		    adcval = abs(static_cast<int>(adcval)-static_cast<int>(nearestPower));
+		    prevadcval=adcval;
+		    adcvalremainder=std::abs(static_cast<int>(adcval)-static_cast<int>(baseline));
+		    outFile << frame4 << " \t" << fem << " \t" << channel << " \t" << timetick << " \t" << samplecount << " \t" << adcval << " \t" << adcvalremainder << " \n";
+		    outFile.flush();
+
+		  }
+
+		  else if(diffcheck < -limit1) {
+
+                    diff = abs(static_cast<int>(adcval) - static_cast<int>(prevadcval));
+                    nearestPower = nearestPowerOf2(diff);
+                    adcval = abs(static_cast<int>(adcval)+static_cast<int>(nearestPower));
+                    prevprevadcval=prevadcval;
+                    prevadcval=adcval;
+                    adcvalremainder=std::abs(static_cast<int>(adcval)-static_cast<int>(baseline));
+                    outFile << frame4 << " \t" << fem << " \t" << channel << " \t" << timetick << " \t" << samplecount << " \t" << adcval << " \t" << adcvalremainder << " \n";
+                    outFile.flush();
+
+                  }
+
+		  else{
+		    prevprevadcval=prevadcval;
+		    prevadcval=adcval;
+		    adcvalremainder=std::abs(static_cast<int>(adcval)-static_cast<int>(baseline));
+                             
+		    outFile << frame4 << " \t" << fem << " \t" << channel << " \t" << timetick << " \t" << samplecount  << " \t" << adcval << "\t" << adcvalremainder << " \n";
+		    outFile.flush();
+
+		  }
+			}
+
+
+
+		else if(diffcheck < -limit) {
+
+		  diff = abs(static_cast<int>(adcval) - static_cast<int>(prevadcval));
+		  nearestPower = nearestPowerOf2(diff);
+		  adcval = abs(static_cast<int>(adcval)+static_cast<int>(nearestPower));
+		  diffcheck=static_cast<int>(adcval) - static_cast<int>(prevadcval);
+
+		  if(diffcheck < -limit1) {
+
+		    diff = abs(static_cast<int>(adcval) - static_cast<int>(prevadcval));
+		    nearestPower = nearestPowerOf2(diff);
+		    adcval = abs(static_cast<int>(adcval)+static_cast<int>(nearestPower));
+		    prevprevadcval=prevadcval;
+		    prevadcval=adcval;
+		    adcvalremainder=std::abs(static_cast<int>(adcval)-static_cast<int>(baseline));
+		    outFile << frame4 << " \t" << fem << " \t" << channel << " \t" << timetick << " \t" << samplecount << " \t" << adcval << " \t" << adcvalremainder << " \n";
+		    outFile.flush();
+
+		  }
+
+		  else if(diffcheck > limit1) {
+
+                    diff = abs(static_cast<int>(adcval) - static_cast<int>(prevadcval));
+                    nearestPower = nearestPowerOf2(diff);
+                    adcval = abs(static_cast<int>(adcval)-static_cast<int>(nearestPower));
+                    prevadcval=adcval;
+                    adcvalremainder=std::abs(static_cast<int>(adcval)-static_cast<int>(baseline));
+                    outFile << frame4 << " \t" << fem << " \t" << channel << " \t" << timetick << " \t" << samplecount << " \t" << adcval << " \t" << adcvalremainder << " \n";
+                    outFile.flush();
+
+                  }
+
+		  else{
+		    prevprevadcval=prevadcval;
+		    prevadcval=adcval;
+		    adcvalremainder=std::abs(static_cast<int>(adcval)-static_cast<int>(baseline));
+		    outFile << frame4 << " \t" << fem << " \t" << channel << " \t" << timetick << " \t" << samplecount << " \t" << adcval << " \t" << adcvalremainder << " \n";
+		    outFile.flush();
+
+
+
+		  }
+		}
+
+
+			else{
+			  prevprevadcval=prevadcval;
+			  prevadcval=adcval;
+			  adcvalremainder=std::abs(static_cast<int>(adcval)-static_cast<int>(baseline));
+			  outFile << frame4 << " \t" << fem << " \t" << channel << " \t" << timetick << " \t" << samplecount  << " \t" << adcval << "\t" << adcvalremainder << " \n";
+			  outFile.flush();
+
+			}
+	  
+
+		  if(adcvalremainder>amp){
+		    amp=adcvalremainder;
+		    //if(amp>120 or amp<35){
+		      //amp =  adjustAmp(amp) ; //rand() % 71 + 30;
+		      //adcvalremainder=amp;
+		      //		      amp=60;
+		      //adcvalremainder=60;
+		      //}
+
+
+		  }
+		  intgrl +=adcvalremainder;
+		       
+		  /*	if(adcval>amp){
+			  amp=adcval;
+			}
+			intgrl +=adcval;
+
+		  */
+
+
+			//		outFile << frame4 << " \t" << fem << " \t" << channel << " \t" << timetick << " \t" << samplecount << " \t" << adcval << "\t" << adcvalremainder << " \n";
+		samplecount++;
+	  }
+	  adcdiff.clear();
+      }
+
+	//} //end countadc true condition
+
+
+      else if (last16b>>12 == 0x3){
+          adcval=(last16b & 0xfff);
+	  //std::cout << "End of waveform packet with adc value: " << std::dec << adcval << " \t" << prevadcval << std::endl;
+          tot=tot+1;
+	 
+	  //cout <<"L End of waveform: adcval, prevadcval, baseline: "<< std::dec << adcval << " , " << prevadcval << " , " << static_cast<int>(adcval) - static_cast<int>(prevadcval) << endl;
+
+	  diffcheck=static_cast<int>(adcval) - static_cast<int>(prevadcval);  
+
+
+	  if(diffcheck > limit) {	                         
+	    diff = abs(static_cast<int>(adcval) - static_cast<int>(prevadcval));
+	    nearestPower = nearestPowerOf2(diff);
+	    adcval = abs(static_cast<int>(adcval)-static_cast<int>(nearestPower));
+
+	    diffcheck=static_cast<int>(adcval) - static_cast<int>(prevadcval);  
+
+
+	    if(diffcheck > limit1) {
+
+	      diff = abs(static_cast<int>(adcval) - static_cast<int>(prevadcval));
+	      nearestPower = nearestPowerOf2(diff);
+	      adcval = abs(static_cast<int>(adcval)-static_cast<int>(nearestPower));
+	      prevprevadcval=prevadcval;
+	      prevadcval=adcval;
+	      adcvalremainder=std::abs(static_cast<int>(adcval)-static_cast<int>(baseline));
+	      outFile << frame4 << " \t" << fem << " \t" << channel << " \t" << timetick << " \t" << samplecount << " \t" << adcval << " \t" << adcvalremainder << " \n";
+	      outFile.flush();
+
+	    }
+
+	    else if(diffcheck < -limit1) {
+
+              diff = abs(static_cast<int>(adcval) - static_cast<int>(prevadcval));
+              nearestPower = nearestPowerOf2(diff);
+              adcval = abs(static_cast<int>(adcval)+static_cast<int>(nearestPower));
+              prevprevadcval=prevadcval;
+              prevadcval=adcval;
+              adcvalremainder=std::abs(static_cast<int>(adcval)-static_cast<int>(baseline));
+              outFile << frame4 << " \t" << fem << " \t" << channel << " \t" << timetick << " \t" << samplecount << " \t" << adcval << " \t" << adcvalremainder << " \n";
+              outFile.flush();
+
+            }
+
+	    else{
+	      prevprevadcval=prevadcval;
+	      prevadcval=adcval;
+	      adcvalremainder=std::abs(static_cast<int>(adcval)-static_cast<int>(baseline));
+                                 
+	      outFile << frame4 << " \t" << fem << " \t" << channel << " \t" << timetick << " \t" << samplecount  << " \t" << adcval << "\t" << adcvalremainder << " \n";
+	      outFile.flush();
+
+	    }}
+
+
+
+	  else if(diffcheck < -limit) {
+
+	    diff = abs(static_cast<int>(adcval) - static_cast<int>(prevadcval));
+	    nearestPower = nearestPowerOf2(diff);
+	    adcval = abs(static_cast<int>(adcval)+static_cast<int>(nearestPower));
+	    diffcheck=static_cast<int>(adcval) - static_cast<int>(prevadcval);
+
+	    if(diffcheck < -limit1) {
+
+	      diff = abs(static_cast<int>(adcval) - static_cast<int>(prevadcval));
+	      nearestPower = nearestPowerOf2(diff);
+	      adcval = abs(static_cast<int>(adcval)+static_cast<int>(nearestPower));
+	      prevprevadcval=prevadcval;
+	      prevadcval=adcval;
+	      adcvalremainder=std::abs(static_cast<int>(adcval)-static_cast<int>(baseline));
+	      outFile << frame4 << " \t" << fem << " \t" << channel << " \t" << timetick << " \t" << samplecount << " \t" << adcval << " \t" << adcvalremainder << " \n";
+	      outFile.flush();
+
+	    }
+
+	    else if(diffcheck > limit1) {
+
+              diff = abs(static_cast<int>(adcval) - static_cast<int>(prevadcval));
+              nearestPower = nearestPowerOf2(diff);
+              adcval = abs(static_cast<int>(adcval)-static_cast<int>(nearestPower));
+              prevprevadcval=prevadcval;
+              prevadcval=adcval;
+              adcvalremainder=std::abs(static_cast<int>(adcval)-static_cast<int>(baseline));
+              outFile << frame4 << " \t" << fem << " \t" << channel << " \t" << timetick << " \t" << samplecount << " \t" << adcval << " \t" << adcvalremainder << " \n";
+              outFile.flush();
+
+            }
+
+	    else{
+	      prevprevadcval=prevadcval;
+	      prevadcval=adcval;
+	      adcvalremainder=std::abs(static_cast<int>(adcval)-static_cast<int>(baseline));
+	      outFile << frame4 << " \t" << fem << " \t" << channel << " \t" << timetick << " \t" << samplecount << " \t" << adcval << " \t" << adcvalremainder << " \n";
+	      outFile.flush();
+
+
+
+	    }
+	  }
+
+
+
+	  else{
+	    prevprevadcval=prevadcval;
+	    prevadcval=adcval;
+	    adcvalremainder=std::abs(static_cast<int>(adcval)-static_cast<int>(baseline));
+	    outFile << frame4 << " \t" << fem << " \t" << channel << " \t" << timetick << " \t" << samplecount  << " \t" << adcval << "\t" << adcvalremainder << " \n";
+	    outFile.flush();
+	  }
+	  
+	  
+           if(adcvalremainder>amp){
+              amp=adcvalremainder;
+	      //	      if(amp>120 or amp<35){
+
+	      //amp =  adjustAmp(amp); // rand() % 71 + 30; 
+	      //	adcvalremainder=amp;
+
+	      //}
+           
+ }
+            intgrl += adcvalremainder;
+	  
+	    /*
+	  if(adcval>amp){
+	    amp=adcval;
+	  }
+	  intgrl +=adcval;
+	    */
+
+
+            if(tot!=0 and amp!=0 and intgrl!=0 and frame4>1 and tot>totval){
+	      std::cout <<"************* Last 16 bits loop *********" << std::endl;
+	      std::cout << "Check Frame: " << std::dec << frame4 << std::endl; 
+	      std::cout << "FEM number : " << std::dec << fem << std::endl;
+	      std::cout <<  " Channel Number: " << std::dec << channel << std::endl;
+	      std::cout << "ChannelMap : "<< CRATE << " , " << fem << " , " << channel << std::endl;
+	      std::cout << "mapped wire: " << std::dec << mappedchannel << std::endl;
+	      std::cout << "Final adc val: " << std::dec  << amp << std::endl;
+	      std::cout << "tot: " <<  tot << std::endl;
+	      std::cout << "intgrl: " << std::dec << intgrl << std::endl;
+	      std::cout << "time: " << std::dec << timetick << std::endl;
+              if(channel>31 and channel<64){
+                tp_list.emplace_back(minFrame,frame4,fem,mappedchannel,timetick,tot,amp,intgrl); //,run,subrun);                                                                                                                                                    
+              }
+
+            }
+	   
+
+          samplecount++;
+	
+
+        countadc=false;
+	//cout << "count adc is false" << endl;   
+      }
+   
+	      
+     else{
+       	continue;
+     }
+         
+       word_count++;
+   
+      }} //    std::cout << "FlipBit frequency: " << countFlipBit << std::endl;
+  }
+
+    binFile.close();
+ }
+
+ return 0;
+}
+
+
+/*
+
 
      //}
-    }
+   
     word_count++;
-  }//closed while loop on reading a binary file                                                                                                                                                                                                                      
-
-  binFile.close();
-  //  }// close loop on binary files 
-
- }
+   }   
+      }//inframe condiition  
+    
+    }                                          
+    
+binFile.close();
+  
+  } //closed while loop on reading a binary file   
 
  return 0;
                                                              
 }
-
-
+}
+       */

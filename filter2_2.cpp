@@ -20,6 +20,8 @@
 #include <sstream>
 
 #include <chrono>
+#include <ctime>
+
 
 #include <zmq.hpp>
 #include <unistd.h>
@@ -77,7 +79,7 @@ int main() {
   zmq::context_t context(1);
 
   zmq::socket_t subscriber1(context, ZMQ_SUB);
-  subscriber1.connect("tcp://127.0.0.1:7621");
+  subscriber1.connect("tcp://127.0.0.1:7921");
   subscriber1.setsockopt(ZMQ_SUBSCRIBE, "", 0);
 
 
@@ -85,30 +87,40 @@ int main() {
 
   DataFile.open("Filtered2_seb02.bin", std::ios::binary);
 
+  std::ofstream outputFile;
+  outputFile.open("fil2_2time.txt");
+
   while(true) {
+
+    //   auto start1 = std::chrono::system_clock::now();
 
     zmq::message_t message;
     subscriber1.recv(&message);
-    std::cout << "message size: " << message.size() << std::endl;                                                                                            
+    auto start1 = std::chrono::system_clock::now();  
+    std::cout << "message size: " << message.size() << std::endl;                                                                 
+   auto start = std::chrono::system_clock::now();                               
 
     std::vector<TriggerPrimitive> myvec( static_cast<TriggerPrimitive*>(message.data()),
 				      static_cast<TriggerPrimitive*>(message.data()) + message.size() / sizeof(TriggerPrimitive)
 				      );
 
-    //    for (const auto& elem : myvec) {
+    auto end2 = std::chrono::system_clock::now();
+    auto elapsed2 = std::chrono::duration_cast<std::chrono::milliseconds>(end2 - start1);
 
-    //std::cout << "frame: " << elem.frame << " , FEM " <<  elem.fem << " , channel " << elem.channel << std::endl;
-    //}
+    // auto elapsed1 = std::chrono::duration_cast<std::chrono::milliseconds>(end - start1);                              
+    std::cout << "latency: " << std::dec << elapsed2.count() << " microseconds" << std::endl;
 
-    //  std::vector<int> myvec = {5,4,7794,5,478,2350,6,2,1}; 
-    //  uint32_t FilterFrame = myvec[0];
+    
+       uint32_t FilterFrame ;
 
+    //    auto start = std::chrono::system_clock::now();
     for (const auto& elem : myvec) {
-
-      uint32_t FilterFrame = elem.frame;
+      // auto start = std::chrono::system_clock::now();
+      //      uint32_t 
+      FilterFrame = elem.frame;
       std::cout  << "filter frame " <<  FilterFrame  <<  " , Channel: " << elem.channel << " , Timetick: " << elem.time_start << std::endl;
 
-	auto start = std::chrono::system_clock::now();
+      //auto start = std::chrono::system_clock::now();
       //      int seb = myvec[7];
       int seb = elem.crateid;
       int rrun = elem.run;
@@ -138,7 +150,7 @@ int main() {
 
       //std::cout << "Pattern: " << pattern2 << " , " << pattern3  <<  " , run " << runpattern << " , subrun pattern, " << subrunpattern << std::endl;
 
- const char* directory = "/data/kalra_TPCTriggerFiles/Nom_plus_15/"; // "/home/uboonedaq/kalra_seb01/Files/";
+ const char* directory = "/data/kalra_TPCTriggerFiles/Nom_plus_20/"; // "/home/uboonedaq/kalra_seb01/Files/";
   DIR* dir = opendir(directory);
   if (dir == nullptr) {
     std::cerr << "Error opening directory." << std::endl;
@@ -223,7 +235,7 @@ int main() {
 	std::ifstream binFile;
 	//	binFile.open("/home/uboonedaq/kalra_seb01/Files/"+fileName, std::ios::binary);
 	//	binFile.open("/data/kalra_TPCTriggerFiles/FilteredData/"+fileName, std::ios::binary);
-	binFile.open("/data/kalra_TPCTriggerFiles/Nom_plus_15/"+fileName, std::ios::binary);
+	binFile.open("/data/kalra_TPCTriggerFiles/Nom_plus_20/"+fileName, std::ios::binary);
 
 	//	std::ofstream DataFile;
 	//DataFile.open("Filtered.bin", std::ios::binary);
@@ -329,10 +341,11 @@ int main() {
 		DataFile.flush();
 	      }
 
-	      auto end = std::chrono::system_clock::now();
-	      auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+	      //	      auto end = std::chrono::system_clock::now();
+	      //auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
          
-	      std::cout << "Elapsed time (eof): " << std::dec << elapsed.count() << " microseconds" << std::endl;
+	      //std::cout << "Elapsed time (eof): " << std::dec << elapsed.count() << " microseconds" << std::endl;
+
 
 	      writing=false;
 
@@ -349,16 +362,24 @@ int main() {
                 DataFile.flush();
               }
 
-	      auto end = std::chrono::system_clock::now();
-              auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+	      //auto end = std::chrono::system_clock::now();
+              //auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
 
-	      std::cout << "Elapsed time (eof): " << std::dec << elapsed.count() << " microseconds" << std::endl;
+	      //std::cout << "Elapsed time (eof): " << std::dec << elapsed.count() << " microseconds" << std::endl;
 
               writingKeep=false;
 	      writeNext=false;
 	      breaknow = true;
 	      //    return -1;
 	      DataFile.flush();
+
+	      auto end = std::chrono::system_clock::now();
+              auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+	      std::cout << "tot time: " << std::dec << elapsed.count() << " microseconds" << std::endl;
+              outputFile.flush();
+              outputFile << FilterFrame << "\t" <<elapsed.count() <<  endl;
+
+
 	      //std::streampos fileSize = DataFile.tellp();
 	      //cout << "File sixe :" << fileSize << endl;
  	      break;
@@ -424,7 +445,7 @@ int main() {
 		    //		    std::cout << "frame " <<  std::dec << frame4 << std::endl;
 
 		    if(frame4==FilterFrame) {
-
+		      start = std::chrono::system_clock::now();
 		      writing = true;
 		      writeNext = true;
 		      writePrev=true;
@@ -492,6 +513,7 @@ int main() {
 		    //		    std::cout << "frame " <<  std::dec << frame4 << std::endl;
 
 		    if(frame4==FilterFrame) {
+		      start = std::chrono::system_clock::now();
 		      writing = true;
                       writeNext = true;
 		      writePrev=true;
@@ -561,6 +583,13 @@ int main() {
 	}// patter
     }
   }
+    
+  auto end = std::chrono::system_clock::now();
+  auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+  std::cout << "tot time: " << std::dec << elapsed.count() << " microseconds" << std::endl;
+  outputFile << FilterFrame << "\t" <<elapsed.count() <<  endl;
+  outputFile.flush();
+
 
 
     }}
